@@ -126,15 +126,6 @@ def getPixVal(pt, frame):
     return avg[0]
 
 
-def getPixValRGB(pt, frame):
-    '''Get pixel value the exclamation mark'''
-    x = pt[0]-left
-    y = pt[1]-top
-    crop = frame[y-2:y+2, x-2:x+2]
-    avg = cv2.mean(crop)
-    return avg[0]
-
-
 def MeansuringSize(image):
     '''Get image and return fish shadow, area of fish shadow, Size'''
     # Preprocess
@@ -382,7 +373,6 @@ def main():
             Incorrect()
         elif size != 0:
             preval = getPixVal(pt1, frame)
-            prevalRGB = getPixValRGB(pt1, frame)
             count = 0
 
             while True:
@@ -401,18 +391,16 @@ def main():
                 size = 1
                 # Draw(cnt,image)
                 currentVal = getPixVal(pt1, frame1)
-                currentValRGB = getPixValRGB(pt1, frame1)
 
                 def check(currentVal, preval):
                     '''It's real fish if pixel value be changed'''
                     threshold = 3.4
                     diff = np.abs(np.subtract(currentVal, preval))
-                    print('currentVal,preVal,diff,result,prevalRGB,currentValRGB', currentVal, preval, diff, diff >= threshold, prevalRGB, currentValRGB)
+                    print('currentVal,preVal,diff,result', currentVal, preval, diff, diff >= threshold)
                     return diff >= threshold
                 if check(currentVal,preval) and currentVal>100 and currentVal<230:
                     break
 
-                prevalRGB = currentValRGB
                 preval = currentVal
                 if BrokenRope(frame):
                     cv2.waitKey(500)
