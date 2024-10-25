@@ -7,12 +7,13 @@ from PIL import Image
 import cv2
 from scipy.spatial.distance import euclidean
 from imutils import perspective
-from imutils import contours
 import numpy as np
 import imutils
 import time
+import os
 
-ORIGINAL_WIDTH = 998
+
+ORIGINAL_WIDTH = 1247
 
 
 # Pixel value in store button
@@ -24,6 +25,9 @@ hwnd = win32gui.FindWindow(None, 'LDPlayer')
 hwndChild = win32gui.GetWindow(hwnd, win32con.GW_CHILD)
 left, top, right, bot = win32gui.GetWindowRect(hwnd)
 claim_sprite = None
+fishing_button_sprite = None
+broken_rod_title = None
+broken_rod_text = None
 rng = np.random.default_rng(seed=6994420)
 ratio = 1
 prevWidth = ORIGINAL_WIDTH
@@ -103,24 +107,19 @@ def detectClick():
         if a != state_left:  # button state changed
             state_left = a
             if a < 0:
-                print('Complete')
                 return win32gui.GetCursorPos()
         cv2.waitKey(100)
 
 
-def GetImage(pt, frame):
-    '''Croping around fishing buoy area image that from capture frame'''
-    x = pt[0]-left
-    y = pt[1]-top
-    crop = frame[y-100:y+100, x-100:x+100]
-    return crop
-
-
-def getPixVal(pt, frame):
+def getPixVal(pt, frame, raw=False):
     '''Get pixel value the exclamation mark'''
     x = pt[0]-left
     y = pt[1]-top
-    crop = frame[y-2:y+2, x-2:x+2]
+    crop = frame[y-1:y+1, x-1:x+1]
+
+    if raw:
+        return crop
+
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     avg = cv2.mean(gray)
     return avg[0]
@@ -199,6 +198,17 @@ def detect_sprite(screenshot_normed, sprite, r=1):
     return (maxVal, start, end)
 
 
+def SeeFishingButton(frame):
+    global fishing_button_sprite, ratio
+
+    frame_normed = NormaliseImg(frame)
+    fishing_detected = detect_sprite(frame_normed, fishing_button_sprite, r=ratio)
+
+    print('fishing_detected[0]', fishing_detected[0])
+
+    return fishing_detected[0] >= 0.4
+
+
 def Storing(frame):
     global claim_sprite, ratio
 
@@ -223,17 +233,17 @@ def Storing(frame):
         return False
 
 
-def BrokenRope(frame):
-    '''Broken rope check'''
-    crop = frame[311-3:311+3, 916-3:916+3]
-    value = cv2.mean(crop)
-    if value == ConstBag:
-        return True
-    else:
-        return False
-
-
 def BrokenRod(frame):
+    global broken_rod_title_vi, broken_rod_title_en, broken_rod_text_vi, broken_rod_text_en, ratio
+
+    frame_normed = NormaliseImg(frame)
+    detected_vi = [detect_sprite(frame_normed, sprite, r=ratio) for sprite in [broken_rod_title_vi, broken_rod_text_vi]]
+    detected_en = [detect_sprite(frame_normed, sprite, r=ratio) for sprite in [broken_rod_title_en, broken_rod_text_en]]
+
+    print('detected_vi, detected_en', detected_vi, detected_en)
+
+    return all(match >= 0.5 for (match, _, _) in detected_vi) or all(match >= 0.5 for (match, _, _) in detected_en)
+
     '''Broken rod check'''
     crop = frame[264:312, 400:563]
     value = cv2.mean(crop)
@@ -243,18 +253,12 @@ def BrokenRod(frame):
         return False
 
 
-def Repair(stt):
+def Repair():
     '''Repair broken rod'''
-    Press(0x42)  # press b
+    Press(0x56)  # press v
     time.sleep(1)
-    Press(0x43)  # press c
+    Press(0x56)  # press v
     time.sleep(1)
-    Press(stt)  # press stt
-    time.sleep(1)
-    Press(0x4F)
-    time.sleep(2)
-    Press(0x4F)
-    time.sleep(2)
 
 
 def Incorrect():
@@ -267,26 +271,46 @@ def Incorrect():
     time.sleep(10)
 
 
+def PixelValuesChanged(prev, curr):
+    norm_prev = prev.astype(np.int16).ravel()
+    norm_curr = curr.astype(np.int16).ravel()
+    diff = np.subtract(norm_curr, norm_prev)
+    percentage = (np.mean(np.abs(diff) > 2) * 100)
+    result = percentage >= 50
+
+    print('norm_prev, norm_curr, diff, percentage, result', norm_prev, norm_curr, diff, percentage, result)
+
+    return result
+
+
+def IsInside(pt, rect):
+    (pt1, pt2) = rect
+
+    if pt[0] < pt1[0] or pt[0] > pt2[0]:
+        return False
+
+    if pt[1] < pt1[1] or pt[1] > pt2[1]:
+        return False
+
+    return True
+
+
 def Getinput():
-    list = [0]
-    for i in range(1, 5):
-        print('Do you want fishing size', i, '?(y/n):')
-        temp = input()
-        if temp == 'y':
-            list.append(i)
-    print('Which fishing rod be used ?(1 or 2,..):')
-    stt = int(input())
-    detectClick()
-    print('Select fishing buoy: ')
-    pt = detectClick()
+    left, top, right, bot = win32gui.GetWindowRect(hwnd)
+
     print('Select exclamation mark location: ')
-    pt1 = detectClick()
-    return list, pt, pt1, stt
+    while True:
+        pt1 = detectClick()
 
+        if IsInside(pt1, ((left, top), (right, bot))):
+            break
 
-def Correct(stt):
+    return pt1
+
+def Correct(skipRetract):
     print('''It's real!''')
-    Press(0x20)
+    if not skipRetract:
+        Press(0x20)
     count = 0
     while True:
         frame2 = Capture(hwnd)
@@ -296,9 +320,7 @@ def Correct(stt):
             Press(0x4C)  # press(L)
             Wait('slow')
             break
-        elif BrokenRope(frame2):
-            print('Broken rope')
-            time.sleep(0.5)
+        elif SeeFishingButton(frame2):
             break
         else:
             count = count + 1
@@ -313,7 +335,7 @@ def Correct(stt):
     time.sleep(2)
     frame2 = Capture(hwnd)
     if BrokenRod(frame2):
-        Repair(stt)
+        Repair()
         Press(0x4F)
         time.sleep(1.5)
         Press(0x4B)
@@ -328,7 +350,7 @@ def NormaliseImg(img):
 
 
 def LoadSprite(path):
-    img = cv2.imread(path)
+    img = cv2.imread(os.path.join('assets', path))
     img = NormaliseImg(img)
     w, h = img.shape[::-1]
 
@@ -345,73 +367,60 @@ def Wait(duration):
 
 
 def main():
-    global claim_sprite
+    global claim_sprite, fishing_button_sprite, broken_rod_title_vi, broken_rod_title_en, broken_rod_text_vi, broken_rod_text_en
 
     claim_sprite = LoadSprite('claim.png')
-    list, pt, pt1, stt = Getinput()
+    fishing_button_sprite = LoadSprite('fish-button.png')
+    broken_rod_title_vi = LoadSprite('repair-rod-title-vi.png')
+    broken_rod_title_en = LoadSprite('repair-rod-title-en.png')
+    broken_rod_text_vi = LoadSprite('repair-rod-text-vi.png')
+    broken_rod_text_en = LoadSprite('repair-rod-text-en.png')
+    pt1 = Getinput()
 
-    if stt == 1:
-        sttcode = 0x31
-    elif stt == 2:
-        sttcode = 0x32
-    elif stt == 3:
-        sttcode = 0x32
     print('Auto fishing will be started after 2 seconds')
     time.sleep(2)
 
     while True:
         frame = Capture(hwnd)
-        image = GetImage(pt, frame)
-        dim = (400, 400)
-        image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
-        # cnt,area,size = MeansuringSize(image)
-        size = 1
-        # Draw(cnt,image)
-        if size != 0:
-            print('Predict size: ', size)
-        if size not in list:
-            Incorrect()
-        elif size != 0:
-            preval = getPixVal(pt1, frame)
-            count = 0
+        skipRetract = False
 
-            while True:
-                count = count + 1
-                ints = rng.integers(low=90, high=140, size=1)
+        prevalRaw = getPixVal(pt1, frame, raw=True)
+        count = 0
 
-                if count >= ints[0]:
-                    Wait('ok')
-                    break
+        while True:
+            count = count + 1
+            ints = rng.integers(low=90, high=140, size=1)
 
-                frame1 = Capture(hwnd)
-                image = GetImage(pt, frame1)
-                dim = (400, 400)
-                image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
-                # cnt,area1,size = MeansuringSize(image)
-                size = 1
-                # Draw(cnt,image)
-                currentVal = getPixVal(pt1, frame1)
-
-                def check(currentVal, preval):
-                    '''It's real fish if pixel value be changed'''
-                    threshold = 3.4
-                    diff = np.abs(np.subtract(currentVal, preval))
-                    print('currentVal,preVal,diff,result', currentVal, preval, diff, diff >= threshold)
-                    return diff >= threshold
-                if check(currentVal,preval) and currentVal>100 and currentVal<230:
-                    break
-
-                preval = currentVal
-                if BrokenRope(frame):
-                    cv2.waitKey(500)
-                    Press(0x4B)
-
+            if count >= ints[0]:
                 Wait('ok')
+                break
 
-            print(currentVal)
-            Correct(sttcode)
-        if BrokenRope(frame):
-            cv2.waitKey(500)
+            frame1 = Capture(hwnd)
+            # Draw(cnt,image)
+            currentVal = getPixVal(pt1, frame1)
+            currentValRaw = getPixVal(pt1, frame1, raw=True)
+
+            if PixelValuesChanged(prevalRaw, currentValRaw) and currentVal>100 and currentVal<230:
+                break
+
+            prevalRaw = currentValRaw
+            if SeeFishingButton(frame1):
+                skipRetract = True
+                break
+
+            # x = pt1[0] - left
+            # y = pt1[1] - top
+            # cv2.rectangle(frame1, (x-1, y-1), (x+1, y+1), (0, 0, 255), 3)
+            # cv2.imshow('currentValRaw', frame1)
+
+            Wait('fast')
+
+        Correct(skipRetract)
+
+        if BrokenRod(frame):
+            Repair()
+            Press(0x4F)
+            time.sleep(1.5)
             Press(0x4B)
 
         Wait('fast')
