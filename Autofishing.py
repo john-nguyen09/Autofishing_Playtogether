@@ -1,9 +1,5 @@
 import win32gui
-import win32ui
 import win32api
-import win32con
-from ctypes import windll
-from PIL import Image
 import cv2
 from scipy.spatial.distance import euclidean
 from imutils import perspective
@@ -11,84 +7,19 @@ import numpy as np
 import imutils
 import time
 import os
+from windowcapture import WindowCapture
+import traceback
 
 
 ORIGINAL_WIDTH = 1247
 
 
-# Pixel value in store button
-ConstStore = (234.3574074074074, 194.31450617283951, 83.9050925925926, 0.0)
-ConstStore2 = (152.84799382716048, 201.46435185185186, 177.07577160493827, 0.0)
-# Pixel value in Bag
-ConstBag = (66.0, 65.0, 228.0, 0.0)
-hwnd = win32gui.FindWindow(None, 'LDPlayer')
-hwndChild = win32gui.GetWindow(hwnd, win32con.GW_CHILD)
-left, top, right, bot = win32gui.GetWindowRect(hwnd)
 claim_sprite = None
 fishing_button_sprite = None
 broken_rod_title = None
 broken_rod_text = None
 rng = np.random.default_rng(seed=6994420)
-ratio = 1
-prevWidth = ORIGINAL_WIDTH
 
-
-# Capture LDPlayer window when it's hidden
-def Capture(hwnd):
-    global prevWidth, ratio
-
-    left, top, right, bot = win32gui.GetWindowRect(hwnd)
-    w = right - left
-    h = bot - top
-
-    if w != prevWidth:
-        ratio = w / ORIGINAL_WIDTH
-        prevWidth = w
-
-    hwndDC = win32gui.GetWindowDC(hwnd)
-    mfcDC = win32ui.CreateDCFromHandle(hwndDC)
-    saveDC = mfcDC.CreateCompatibleDC()
-
-    saveBitMap = win32ui.CreateBitmap()
-    saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
-
-    saveDC.SelectObject(saveBitMap)
-
-    result = windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 3)
-
-    bmpinfo = saveBitMap.GetInfo()
-    bmpstr = saveBitMap.GetBitmapBits(True)
-
-    im = Image.frombuffer(
-        'RGB',
-        (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
-        bmpstr, 'raw', 'BGRX', 0, 1)
-
-    win32gui.DeleteObject(saveBitMap.GetHandle())
-    saveDC.DeleteDC()
-    mfcDC.DeleteDC()
-    win32gui.ReleaseDC(hwnd, hwndDC)
-
-    temp = np.asarray(im)
-    final = cv2.cvtColor(temp, cv2.COLOR_RGB2BGR)
-    return final
-
-
-'''def Capture(hwnd):
-    left, top, right, bot = win32gui.GetWindowRect(hwnd)
-    box = (left, top, right, bot)
-    # Get the image of the desired section
-    image = pyautogui.screenshot(region=(left, top, right-left, bot-top))
-    temp= np.asarray(image)
-    final = cv2.cvtColor(temp, cv2.COLOR_RGB2BGR)
-    return final'''
-
-
-def Press(vk_code):
-    '''Press any key using win32api.Sendmessage'''
-    print('vk_code', vk_code)
-    win32api.SendMessage(hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
-    win32api.SendMessage(hwndChild, win32con.WM_KEYUP, vk_code, 0)
 
 
 def show_images(images):
@@ -109,20 +40,6 @@ def detectClick():
             if a < 0:
                 return win32gui.GetCursorPos()
         cv2.waitKey(100)
-
-
-def getPixVal(pt, frame, raw=False):
-    '''Get pixel value the exclamation mark'''
-    x = pt[0]-left
-    y = pt[1]-top
-    crop = frame[y-1:y+1, x-1:x+1]
-
-    if raw:
-        return crop
-
-    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-    avg = cv2.mean(gray)
-    return avg[0]
 
 
 def MeansuringSize(image):
@@ -198,24 +115,24 @@ def detect_sprite(screenshot_normed, sprite, r=1):
     return (maxVal, start, end)
 
 
-def SeeFishingButton(frame):
-    global fishing_button_sprite, ratio
+def SeeFishingButton(win_cap, frame):
+    global fishing_button_sprite
 
     frame_normed = NormaliseImg(frame)
-    fishing_detected = detect_sprite(frame_normed, fishing_button_sprite, r=ratio)
+    fishing_detected = detect_sprite(frame_normed, fishing_button_sprite, r=win_cap.ratio)
 
     print('fishing_detected[0]', fishing_detected[0])
 
     return fishing_detected[0] >= 0.4
 
 
-def Storing(frame):
-    global claim_sprite, ratio
+def Storing(win_cap, frame):
+    global claim_sprite
 
     '''Storing button appear, isn't it'''
 
     frame_normed = NormaliseImg(frame)
-    claim_detected = detect_sprite(frame_normed, claim_sprite, r=ratio)
+    claim_detected = detect_sprite(frame_normed, claim_sprite, r=win_cap.ratio)
 
     return claim_detected[0] >= 0.6
 
@@ -233,12 +150,12 @@ def Storing(frame):
         return False
 
 
-def BrokenRod(frame):
-    global broken_rod_title_vi, broken_rod_title_en, broken_rod_text_vi, broken_rod_text_en, ratio
+def BrokenRod(win_cap, frame):
+    global broken_rod_title_vi, broken_rod_title_en, broken_rod_text_vi, broken_rod_text_en
 
     frame_normed = NormaliseImg(frame)
-    detected_vi = [detect_sprite(frame_normed, sprite, r=ratio) for sprite in [broken_rod_title_vi, broken_rod_text_vi]]
-    detected_en = [detect_sprite(frame_normed, sprite, r=ratio) for sprite in [broken_rod_title_en, broken_rod_text_en]]
+    detected_vi = [detect_sprite(frame_normed, sprite, r=win_cap.ratio) for sprite in [broken_rod_title_vi, broken_rod_text_vi]]
+    detected_en = [detect_sprite(frame_normed, sprite, r=win_cap.ratio) for sprite in [broken_rod_title_en, broken_rod_text_en]]
 
     print('detected_vi, detected_en', detected_vi, detected_en)
 
@@ -253,21 +170,21 @@ def BrokenRod(frame):
         return False
 
 
-def Repair():
+def Repair(win_cap):
     '''Repair broken rod'''
-    Press(0x56)  # press v
+    win_cap.press(0x56)  # press v
     time.sleep(1)
-    Press(0x56)  # press v
+    win_cap.press(0x56)  # press v
     time.sleep(1)
 
 
-def Incorrect():
+def Incorrect(win_cap):
     '''Incorrect size procedure '''
     print('Incorrect size')
-    Press(0x20)
+    win_cap.press(0x20)
     time.sleep(1.5)
     print('Continue...')
-    Press(0x4B)
+    win_cap.press(0x4B)
     time.sleep(10)
 
 
@@ -276,11 +193,13 @@ def PixelValuesChanged(prev, curr):
     norm_curr = curr.astype(np.int16).ravel()
     diff = np.subtract(norm_curr, norm_prev)
     percentage = (np.mean(np.abs(diff) > 2) * 100)
+    percentage_negative = (np.mean(diff < 0) * 100)
     result = percentage >= 50
+    result_negative = percentage_negative >= 25 and percentage > 33
 
-    print('norm_prev, norm_curr, diff, percentage, result', norm_prev, norm_curr, diff, percentage, result)
+    print('norm_prev, norm_curr, diff, percentage, percentage_negative, result, result_negative', norm_prev, norm_curr, diff, percentage, percentage_negative, result, result_negative)
 
-    return result
+    return result or result_negative
 
 
 def IsInside(pt, rect):
@@ -295,8 +214,8 @@ def IsInside(pt, rect):
     return True
 
 
-def Getinput():
-    left, top, right, bot = win32gui.GetWindowRect(hwnd)
+def Getinput(win_cap):
+    left, top, right, bot = win_cap.left, win_cap.top, win_cap.right, win_cap.bot
 
     print('Select exclamation mark location: ')
     while True:
@@ -307,20 +226,21 @@ def Getinput():
 
     return pt1
 
-def Correct(skipRetract):
+
+def Correct(win_cap, skipRetract):
     print('''It's real!''')
     if not skipRetract:
-        Press(0x20)
+        win_cap.press(0x20)
     count = 0
     while True:
-        frame2 = Capture(hwnd)
-        if Storing(frame2):
+        frame2 = win_cap.capture()
+        if Storing(win_cap, frame2):
             print('Storing')
             Wait('ok')
-            Press(0x4C)  # press(L)
+            win_cap.press(0x4C)  # press(L)
             Wait('slow')
             break
-        elif SeeFishingButton(frame2):
+        elif SeeFishingButton(win_cap, frame2):
             break
         else:
             count = count + 1
@@ -331,14 +251,14 @@ def Correct(skipRetract):
         Wait('slow')
 
     print('Continue...')
-    Press(0x4B)
+    win_cap.press(0x4B)
     time.sleep(2)
-    frame2 = Capture(hwnd)
-    if BrokenRod(frame2):
-        Repair()
-        Press(0x4F)
+    frame2 = win_cap.capture()
+    if BrokenRod(win_cap, frame2):
+        Repair(win_cap)
+        win_cap.press(0x4F)
         time.sleep(1.5)
-        Press(0x4B)
+        win_cap.press(0x4B)
     time.sleep(10)
 
 
@@ -358,6 +278,7 @@ def LoadSprite(path):
 
 
 WaitFuncs = {
+    'veryslow': lambda : rng.integers(low=1870, high=2720, size=1)[0],
     'slow': lambda : rng.integers(low=829, high=1362, size=1)[0],
     'fast': lambda : rng.integers(low=202, high=397, size=1)[0],
     'ok': lambda : rng.integers(low=420, high=521, size=1)[0],
@@ -369,61 +290,70 @@ def Wait(duration):
 def main():
     global claim_sprite, fishing_button_sprite, broken_rod_title_vi, broken_rod_title_en, broken_rod_text_vi, broken_rod_text_en
 
-    claim_sprite = LoadSprite('claim.png')
-    fishing_button_sprite = LoadSprite('fish-button.png')
-    broken_rod_title_vi = LoadSprite('repair-rod-title-vi.png')
-    broken_rod_title_en = LoadSprite('repair-rod-title-en.png')
-    broken_rod_text_vi = LoadSprite('repair-rod-text-vi.png')
-    broken_rod_text_en = LoadSprite('repair-rod-text-en.png')
-    pt1 = Getinput()
+    win_cap = WindowCapture.find_and_init()
+    win_cap.capture() # To calculate rect
 
-    print('Auto fishing will be started after 2 seconds')
-    time.sleep(2)
+    the_threads = []
 
-    while True:
-        frame = Capture(hwnd)
-        skipRetract = False
+    try:
+        for the_thread in the_threads:
+            the_thread.start()
 
-        prevalRaw = getPixVal(pt1, frame, raw=True)
-        count = 0
+        claim_sprite = LoadSprite('claim.png')
+        fishing_button_sprite = LoadSprite('fish-button.png')
+        broken_rod_title_vi = LoadSprite('repair-rod-title-vi.png')
+        broken_rod_title_en = LoadSprite('repair-rod-title-en.png')
+        broken_rod_text_vi = LoadSprite('repair-rod-text-vi.png')
+        broken_rod_text_en = LoadSprite('repair-rod-text-en.png')
+        pt1 = Getinput(win_cap)
+
+        print('Auto fishing will be started after 2 seconds')
+        time.sleep(2)
 
         while True:
-            count = count + 1
-            ints = rng.integers(low=90, high=140, size=1)
+            frame = win_cap.capture()
+            skipRetract = False
 
-            if count >= ints[0]:
-                Wait('ok')
-                break
+            prevalRaw = win_cap.getPixVal(pt1, frame, raw=True)
+            count = 0
 
-            frame1 = Capture(hwnd)
-            # Draw(cnt,image)
-            currentVal = getPixVal(pt1, frame1)
-            currentValRaw = getPixVal(pt1, frame1, raw=True)
+            while True:
+                count = count + 1
+                ints = rng.integers(low=180, high=289, size=1)
 
-            if PixelValuesChanged(prevalRaw, currentValRaw) and currentVal>100 and currentVal<230:
-                break
+                if count >= ints[0]:
+                    Wait('ok')
+                    break
 
-            prevalRaw = currentValRaw
-            if SeeFishingButton(frame1):
-                skipRetract = True
-                break
+                frame1 = win_cap.capture()
+                currentVal = win_cap.getPixVal(pt1, frame1)
+                currentValRaw = win_cap.getPixVal(pt1, frame1, raw=True)
 
-            # x = pt1[0] - left
-            # y = pt1[1] - top
-            # cv2.rectangle(frame1, (x-1, y-1), (x+1, y+1), (0, 0, 255), 3)
-            # cv2.imshow('currentValRaw', frame1)
+                if PixelValuesChanged(prevalRaw, currentValRaw) and currentVal>100 and currentVal<230:
+                    break
+
+                prevalRaw = currentValRaw
+                if SeeFishingButton(win_cap, frame1):
+                    skipRetract = True
+                    break
+
+                Wait('fast')
+
+            Correct(win_cap, skipRetract)
+
+            if BrokenRod(win_cap, frame):
+                Repair()
+                win_cap.press(0x4F)
+                Wait('veryslow')
+                win_cap.press(0x4B)
 
             Wait('fast')
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
 
-        Correct(skipRetract)
-
-        if BrokenRod(frame):
-            Repair()
-            Press(0x4F)
-            time.sleep(1.5)
-            Press(0x4B)
-
-        Wait('fast')
+        for the_thread in the_threads:
+            the_thread.stop()
 
 
 if __name__ == '__main__':
