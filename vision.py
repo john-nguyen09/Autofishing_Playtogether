@@ -1,15 +1,8 @@
 import utils
+import cv2
 
 
 class Vision:
-    claimSprite = None
-    fishingButtonSprite = None
-    brokenRodTitleVi = None
-    brokenRodTitleEn = None
-    brokenRodTextVi = None
-    brokenRodTextEn = None
-    winCap = None
-
     def __init__(self, winCap):
         self.winCap = winCap
 
@@ -19,6 +12,9 @@ class Vision:
         self.brokenRodTitleEn = utils.loadSprite('repair-rod-title-en.png')
         self.brokenRodTextVi = utils.loadSprite('repair-rod-text-vi.png')
         self.brokenRodTextEn = utils.loadSprite('repair-rod-text-en.png')
+        self.openVi = utils.loadSprite('open-vi.png')
+        self.openAllVi = utils.loadSprite('open-all-vi.png')
+        self.ok = utils.loadSprite('ok.png')
 
     def seeBrokenRod(self, frame):
         detectedVi = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
@@ -38,6 +34,24 @@ class Vision:
         storeDetected = utils.detectSprite(
             frame.getNormed(), self.claimSprite, r=self.winCap.ratio)
 
-        print('storeDetected', storeDetected)
-
         return storeDetected[0] >= 0.6
+
+    def seeCardsToOpen(self, frame):
+        openDetected = utils.detectSprite(
+            frame.getNormed(), self.openVi, r=self.winCap.ratio)
+
+        return openDetected[0] >= 0.6, openDetected[1], openDetected[2]
+
+    def seeOpenAll(self, frame):
+        openAllDetected = utils.detectSprite(
+            frame.getNormed(), self.openAllVi, r=self.winCap.ratio)
+
+        return openAllDetected[0] >= 0.6, openAllDetected[1], openAllDetected[2]
+
+    def seeOk(self, frame):
+        okDetected = utils.detectSprite(
+            frame.getNormed(), self.ok, r=self.winCap.ratio)
+
+        print('okDetected', okDetected)
+
+        return okDetected[0] >= 0.6, okDetected[1], okDetected[2]

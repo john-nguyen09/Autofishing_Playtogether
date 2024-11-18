@@ -3,6 +3,7 @@ import win32api
 import cv2
 import numpy as np
 import time
+import utils
 from windowcapture import WindowCapture
 from vision import Vision
 import traceback
@@ -25,6 +26,7 @@ class Autofishing:
         self.waitFuncs = {
             'veryslow': lambda: self.rng.integers(low=2333, high=2720, size=1)[0],
             'slow': lambda: self.rng.integers(low=829, high=1362, size=1)[0],
+            'nottooslow': lambda: self.rng.integers(low=473, high=597, size=1)[0],
             'fast': lambda: self.rng.integers(low=202, high=397, size=1)[0],
             'ok': lambda: self.rng.integers(low=420, high=521, size=1)[0],
         }
@@ -103,13 +105,20 @@ class Autofishing:
                 break
             elif self.vision.seeFishingButton(frame2):
                 break
+            elif (open := self.vision.seeCardsToOpen(frame2))[0]:
+                self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
+            elif (openAll := self.vision.seeOpenAll(frame2))[0]:
+                self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
+            elif (ok := self.vision.seeOk(frame2))[0]:
+                self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
+                break
             else:
                 count = count + 1
                 ints = self.rng.integers(low=8, high=12, size=1)
                 if count >= ints[0]:
                     break
 
-            self.wait('slow')
+            self.wait('nottooslow')
 
         print('Continue...')
         self.winCap.press(0x4B)
@@ -153,6 +162,14 @@ class Autofishing:
 
                 prevalRaw = currentValRaw
                 if self.vision.seeFishingButton(frame1):
+                    skipRetract = True
+                    break
+                elif (open := self.vision.seeCardsToOpen(frame1))[0]:
+                    self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
+                elif (openAll := self.vision.seeOpenAll(frame1))[0]:
+                    self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
+                elif (ok := self.vision.seeOk(frame1))[0]:
+                    self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
                     skipRetract = True
                     break
 

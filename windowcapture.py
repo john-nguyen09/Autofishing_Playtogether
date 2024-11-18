@@ -95,9 +95,15 @@ class WindowCapture:
 
     def press(self, vk_code):
         '''Press any key using win32api.Sendmessage'''
-        print('vk_code', vk_code)
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
+
+    def leftClick(self, pos):
+        posLong = win32api.MAKELONG(int(pos[0]), int(pos[1]))
+        win32gui.SendMessage(self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
+        win32api.SendMessage(self.hwndChild, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, posLong)
+        cv2.waitKey(37)
+        win32api.SendMessage(self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
     # find the name of the window you're interested in.
     # once you have it, update window_capture()
