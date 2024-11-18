@@ -1,9 +1,13 @@
 import numpy as np
-import win32gui, win32ui, win32con, win32api
+import win32gui
+import win32ui
+import win32con
+import win32api
 from ctypes import windll
 import re
 from PIL import Image
 import cv2
+from frame import Frame
 
 
 class WindowCapture:
@@ -21,6 +25,7 @@ class WindowCapture:
     hwndChild = None
     ratio = 1
     prevWidth = ORIGINAL_WIDTH
+    frame = Frame()
 
     # constructor
     def __init__(self, window_name):
@@ -29,7 +34,6 @@ class WindowCapture:
             raise Exception('Window not found: {}'.format(window_name))
 
         self.hwndChild = win32gui.GetWindow(self.hwnd, win32con.GW_CHILD)
-
 
     def capture(self):
 
@@ -69,14 +73,15 @@ class WindowCapture:
         win32gui.ReleaseDC(self.hwnd, wDC)
         win32gui.DeleteObject(dataBitMap.GetHandle())
 
-        return cv2.cvtColor(np.asarray(im), cv2.COLOR_RGB2BGR)
+        self.frame.setMatrix(cv2.cvtColor(np.asarray(im), cv2.COLOR_RGB2BGR))
 
+        return self.frame
 
     def getPixVal(self, pt, frame, raw=False):
         '''Get pixel value the exclamation mark'''
         x = pt[0]
         y = pt[1]
-        crop = frame[y-1:y+1, x-1:x+1]
+        crop = frame.matrix[y-1:y+1, x-1:x+1]
 
         if raw:
             return crop
@@ -85,10 +90,8 @@ class WindowCapture:
         avg = cv2.mean(gray)
         return avg[0]
 
-
     def toRelative(self, pt):
         return pt[0] - self.left, pt[1] - self.top
-
 
     def press(self, vk_code):
         '''Press any key using win32api.Sendmessage'''
@@ -96,44 +99,44 @@ class WindowCapture:
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
 
-
     # find the name of the window you're interested in.
     # once you have it, update window_capture()
     # https://stackoverflow.com/questions/55547940/how-to-get-a-list-of-the-name-of-every-open-window
+
     @staticmethod
-    def list_window_names():
+    def listWindowNames():
         names = []
+
         def winEnumHandler(hwnd, ctx):
             if win32gui.IsWindowVisible(hwnd):
                 names.append(win32gui.GetWindowText(hwnd))
         win32gui.EnumWindows(winEnumHandler, None)
         return names
 
-
     @staticmethod
-    def find_and_init():
-        matched_names = []
-        for name in WindowCapture.list_window_names():
+    def findAndInit():
+        matchedNames = []
+        for name in WindowCapture.listWindowNames():
             if re.search('^LDPlayer', name):
-                matched_names.append(name)
+                matchedNames.append(name)
 
-        target_name = ''
-        if len(matched_names) == 0:
+        targetName = ''
+        if len(matchedNames) == 0:
             print('No LDPlayer found')
             exit(1)
-        elif len(matched_names) == 1:
-            target_name = matched_names[0]
+        elif len(matchedNames) == 1:
+            targetName = matchedNames[0]
         else:
-            for i, name in enumerate(matched_names):
+            for i, name in enumerate(matchedNames):
                 print(f'{i}. {name}')
             print('What window?: ')
 
-            while len(target_name) == 0:
+            while len(targetName) == 0:
                 idx = int(input())
 
-                if idx < 0 or idx > len(matched_names):
+                if idx < 0 or idx > len(matchedNames):
                     print('Invalid input, try again')
                 else:
-                    target_name = matched_names[idx]
+                    targetName = matchedNames[idx]
 
-        return WindowCapture(target_name)
+        return WindowCapture(targetName)
