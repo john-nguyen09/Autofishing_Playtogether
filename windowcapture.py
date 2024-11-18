@@ -74,8 +74,8 @@ class WindowCapture:
 
     def getPixVal(self, pt, frame, raw=False):
         '''Get pixel value the exclamation mark'''
-        x = pt[0] - self.left
-        y = pt[1] - self.top
+        x = pt[0]
+        y = pt[1]
         crop = frame[y-1:y+1, x-1:x+1]
 
         if raw:
@@ -84,6 +84,10 @@ class WindowCapture:
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
         avg = cv2.mean(gray)
         return avg[0]
+
+
+    def toRelative(self, pt):
+        return pt[0] - self.left, pt[1] - self.top
 
 
     def press(self, vk_code):

@@ -224,7 +224,7 @@ def Getinput(win_cap):
         if IsInside(pt1, ((left, top), (right, bot))):
             break
 
-    return pt1
+    return win_cap.toRelative(pt1)
 
 
 def Correct(win_cap, skipRetract):
