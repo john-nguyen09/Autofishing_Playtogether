@@ -4,7 +4,6 @@ import os
 
 def normaliseImg(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.Canny(img, 50, 200)
 
     return img
 

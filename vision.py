@@ -1,5 +1,4 @@
 import utils
-import cv2
 
 
 class Vision:
@@ -22,31 +21,37 @@ class Vision:
         detectedEn = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.brokenRodTitleEn, self.brokenRodTextEn]]
 
-        return all(match >= 0.5 for (match, _, _) in detectedVi) or all(match >= 0.5 for (match, _, _) in detectedEn)
+        return all(match >= 0.7 for (match, _, _) in detectedVi) or all(match >= 0.7 for (match, _, _) in detectedEn)
 
     def seeFishingButton(self, frame):
         fishingDetected = utils.detectSprite(
             frame.getNormed(), self.fishingButtonSprite, r=self.winCap.ratio)
 
-        return fishingDetected[0] >= 0.4
+        return fishingDetected[0] >= 0.7
 
     def seeStoreButton(self, frame):
         storeDetected = utils.detectSprite(
             frame.getNormed(), self.claimSprite, r=self.winCap.ratio)
 
-        return storeDetected[0] >= 0.6
+        print('storeDetected', storeDetected)
+
+        return storeDetected[0] >= 0.7
 
     def seeCardsToOpen(self, frame):
         openDetected = utils.detectSprite(
             frame.getNormed(), self.openVi, r=self.winCap.ratio)
 
-        return openDetected[0] >= 0.6, openDetected[1], openDetected[2]
+        print('openDetected', openDetected)
+
+        return openDetected[0] >= 0.7, openDetected[1], openDetected[2]
 
     def seeOpenAll(self, frame):
         openAllDetected = utils.detectSprite(
             frame.getNormed(), self.openAllVi, r=self.winCap.ratio)
 
-        return openAllDetected[0] >= 0.6, openAllDetected[1], openAllDetected[2]
+        print('openAllDetected', openAllDetected)
+
+        return openAllDetected[0] >= 0.7, openAllDetected[1], openAllDetected[2]
 
     def seeOk(self, frame):
         okDetected = utils.detectSprite(
@@ -54,4 +59,4 @@ class Vision:
 
         print('okDetected', okDetected)
 
-        return okDetected[0] >= 0.6, okDetected[1], okDetected[2]
+        return okDetected[0] >= 0.9, okDetected[1], okDetected[2]
