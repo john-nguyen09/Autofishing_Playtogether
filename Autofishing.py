@@ -96,29 +96,35 @@ class Autofishing:
             self.winCap.press(0x20)
         count = 0
         while True:
+            self.wait('nottooslow')
+
             frame2 = self.winCap.capture()
             if self.vision.seeStoreButton(frame2):
-                print('Storing')
+                print('seeStoreButton')
                 self.wait('ok')
                 self.winCap.press(0x4C)  # press(L)
                 self.wait('slow')
                 break
             elif self.vision.seeFishingButton(frame2):
+                print('seeFishingButton')
                 break
             elif (open := self.vision.seeCardsToOpen(frame2))[0]:
                 self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
             elif (openAll := self.vision.seeOpenAll(frame2))[0]:
                 self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
+            elif (clickHere := self.vision.seeBunchOfClickHere(frame2))[0]:
+                self.winCap.leftClick(utils.getRandomMiddle(self.rng, clickHere[1], clickHere[2]))
             elif (ok := self.vision.seeOk(frame2))[0]:
                 self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
                 break
             else:
                 count = count + 1
-                ints = self.rng.integers(low=8, high=12, size=1)
+                ints = self.rng.integers(low=50, high=60, size=1)
                 if count >= ints[0]:
+                    print('correct timeout')
                     break
 
-            self.wait('nottooslow')
+            print('correct continue')
 
         print('Continue...')
         self.winCap.press(0x4B)

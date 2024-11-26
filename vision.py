@@ -15,6 +15,11 @@ class Vision:
         self.openAllVi = utils.loadSprite('open-all-vi.png')
         self.ok = utils.loadSprite('ok.png')
 
+        self.clickHere1 = utils.loadSprite('click-here-1.png')
+        self.clickHere2 = utils.loadSprite('click-here-2.png')
+        self.clickHere3 = utils.loadSprite('click-here-3.png')
+        self.clickHere4 = utils.loadSprite('click-here-4.png')
+
     def seeBrokenRod(self, frame):
         detectedVi = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.brokenRodTitleVi, self.brokenRodTextVi]]
@@ -60,3 +65,11 @@ class Vision:
         print('okDetected', okDetected)
 
         return okDetected[0] >= 0.9, okDetected[1], okDetected[2]
+
+    def seeBunchOfClickHere(self, frame):
+        detectedClickHere = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
+            self.clickHere1, self.clickHere2, self.clickHere3, self.clickHere4]]
+
+        print('detectedClickHere', detectedClickHere)
+
+        return all(match >= 0.9 for (match, _, _) in detectedClickHere)
