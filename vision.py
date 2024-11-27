@@ -72,4 +72,8 @@ class Vision:
 
         print('detectedClickHere', detectedClickHere)
 
-        return all(match >= 0.9 for (match, _, _) in detectedClickHere)
+        for (match, start, end) in detectedClickHere:
+            if match >= 0.9:
+                return True, start, end
+
+        return False, None, None
