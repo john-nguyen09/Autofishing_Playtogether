@@ -30,8 +30,14 @@ def detectSprite(screenshotNormed, sprite, r=1):
 
 
 def getRandomMiddle(rng, start, end):
-    randomX = rng.integers(low=-8, high=8, size=1)[0]
-    randomY = rng.integers(low=-8, high=8, size=1)[0]
+    ints = rng.integers(low=-10, high=10, size=2)
+    randomX = ints[0] / 100
+    randomY = ints[1] / 100
     x = min(end[0], start[0])
     y = min(end[1], start[1])
-    return x + (abs(end[0] - start[0]) / 2) + randomX, y + (abs(end[1] - start[1]) / 2) + randomY
+    xMid = x + (abs(end[0] - start[0]) / 2)
+    yMid = y + (abs(end[1] - start[1]) / 2)
+    xDist = abs(end[0] - start[0]) / 2
+    yDist = abs(end[1] - start[1]) / 2
+
+    return int(xMid + (xDist * randomX)), int(yMid + (yDist * randomY))

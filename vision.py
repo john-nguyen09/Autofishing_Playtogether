@@ -38,7 +38,7 @@ class Vision:
         storeDetected = utils.detectSprite(
             frame.getNormed(), self.claimSprite, r=self.winCap.ratio)
 
-        print('storeDetected', storeDetected)
+        # print('storeDetected', storeDetected)
 
         return storeDetected[0] >= 0.7
 
@@ -46,7 +46,7 @@ class Vision:
         openDetected = utils.detectSprite(
             frame.getNormed(), self.openVi, r=self.winCap.ratio)
 
-        print('openDetected', openDetected)
+        # print('openDetected', openDetected)
 
         return openDetected[0] >= 0.7, openDetected[1], openDetected[2]
 
@@ -54,7 +54,7 @@ class Vision:
         openAllDetected = utils.detectSprite(
             frame.getNormed(), self.openAllVi, r=self.winCap.ratio)
 
-        print('openAllDetected', openAllDetected)
+        # print('openAllDetected', openAllDetected)
 
         return openAllDetected[0] >= 0.7, openAllDetected[1], openAllDetected[2]
 
@@ -62,7 +62,7 @@ class Vision:
         okDetected = utils.detectSprite(
             frame.getNormed(), self.ok, r=self.winCap.ratio)
 
-        print('okDetected', okDetected)
+        # print('okDetected', okDetected)
 
         return okDetected[0] >= 0.9, okDetected[1], okDetected[2]
 
@@ -70,10 +70,10 @@ class Vision:
         detectedClickHere = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.clickHere1, self.clickHere2, self.clickHere3, self.clickHere4]]
 
-        print('detectedClickHere', detectedClickHere)
+        # print('detectedClickHere', detectedClickHere)
 
         for (match, start, end) in detectedClickHere:
-            if match >= 0.9:
+            if match >= 0.8:
                 return True, start, end
 
         return False, None, None

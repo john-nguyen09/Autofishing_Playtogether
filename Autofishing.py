@@ -110,12 +110,16 @@ class Autofishing:
                 break
             elif (open := self.vision.seeCardsToOpen(frame2))[0]:
                 self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
+                self.wait('ok')
             elif (openAll := self.vision.seeOpenAll(frame2))[0]:
                 self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
+                self.wait('ok')
             elif (clickHere := self.vision.seeBunchOfClickHere(frame2))[0]:
                 self.winCap.leftClick(utils.getRandomMiddle(self.rng, clickHere[1], clickHere[2]))
+                self.wait('ok')
             elif (ok := self.vision.seeOk(frame2))[0]:
                 self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
+                self.wait('slow')
                 break
             else:
                 count = count + 1
@@ -163,7 +167,7 @@ class Autofishing:
                 currentValRaw = self.winCap.getPixVal(
                     self.exclamationPoint, frame1, raw=True)
 
-                if self.pixelValuesChanged(prevalRaw, currentValRaw) and currentVal > 100 and currentVal < 230:
+                if self.pixelValuesChanged(prevalRaw, currentValRaw) and currentVal > 50 and currentVal < 247:
                     break
 
                 prevalRaw = currentValRaw

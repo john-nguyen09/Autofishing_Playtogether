@@ -99,11 +99,13 @@ class WindowCapture:
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
 
     def leftClick(self, pos):
-        posLong = win32api.MAKELONG(int(pos[0]), int(pos[1]))
+        posLong = win32api.MAKELONG(int(pos[0]), int(pos[1] - 20))
         win32gui.SendMessage(self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
-        win32api.SendMessage(self.hwndChild, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, posLong)
-        cv2.waitKey(37)
-        win32api.SendMessage(self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
+        win32gui.PostMessage(self.hwndChild, win32con.WM_MOUSEMOVE, 0, posLong)
+        cv2.waitKey(30)
+        win32api.PostMessage(self.hwndChild, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, posLong)
+        cv2.waitKey(40)
+        win32api.PostMessage(self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
     # find the name of the window you're interested in.
     # once you have it, update window_capture()
