@@ -1,5 +1,5 @@
 import cv2
-import os
+from sprite import Sprite
 
 
 def normaliseImg(img):
@@ -9,22 +9,15 @@ def normaliseImg(img):
 
 
 def loadSprite(path):
-    img = cv2.imread(os.path.join('assets', path))
-    img = normaliseImg(img)
-    w, h = img.shape[::-1]
-
-    return (img, w, h)
+    return Sprite(path)
 
 
 def detectSprite(screenshotNormed, sprite, r=1):
-    (spriteImg, w, h) = sprite
-    spriteImg = cv2.resize(spriteImg, (0, 0), fx=r, fy=r)
-
     result = cv2.matchTemplate(
-        screenshotNormed, spriteImg, cv2.TM_CCOEFF_NORMED)
+        screenshotNormed, sprite.getRatio(r), cv2.TM_CCOEFF_NORMED)
     (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
     start = (int(maxLoc[0]), int(maxLoc[1]))
-    end = (int((maxLoc[0] + (w * r))), int((maxLoc[1] + (h * r))))
+    end = (int((maxLoc[0] + (sprite.w * r))), int((maxLoc[1] + (sprite.h * r))))
 
     return (maxVal, start, end)
 

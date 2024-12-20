@@ -55,17 +55,12 @@ class WindowCapture:
         dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
         cDC.SelectObject(dataBitMap)
 
-        windll.user32.PrintWindow(self.hwnd, cDC.GetSafeHdc(), 3)
+        cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (0, 0), win32con.SRCCOPY)
+        # windll.user32.PrintWindow(self.hwnd, cDC.GetSafeHdc(), 3)
 
         bmpinfo = dataBitMap.GetInfo()
         signedIntsArray = dataBitMap.GetBitmapBits(True)
-        img = np.fromstring(signedIntsArray, dtype='uint8')
-        img.shape = (self.h, self.w, 4)
-
-        im = Image.frombuffer(
-            'RGB',
-            (bmpinfo['bmWidth'], bmpinfo['bmHeight']),
-            signedIntsArray, 'raw', 'BGRX', 0, 1)
+        img = np.frombuffer(signedIntsArray, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
 
         # free resources
         dcObj.DeleteDC()
@@ -73,7 +68,7 @@ class WindowCapture:
         win32gui.ReleaseDC(self.hwnd, wDC)
         win32gui.DeleteObject(dataBitMap.GetHandle())
 
-        self.frame.setMatrix(cv2.cvtColor(np.asarray(im), cv2.COLOR_RGB2BGR))
+        self.frame.setMatrix(img)
 
         return self.frame
 
@@ -96,6 +91,11 @@ class WindowCapture:
     def press(self, vk_code):
         '''Press any key using win32api.Sendmessage'''
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
+        cv2.waitKey(11)
+        win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
+        cv2.waitKey(7)
+        win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
+        cv2.waitKey(11)
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
 
     def leftClick(self, pos):

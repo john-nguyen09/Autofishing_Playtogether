@@ -27,7 +27,7 @@ class Autofishing:
             'veryslow': lambda: self.rng.integers(low=2333, high=2720, size=1)[0],
             'slow': lambda: self.rng.integers(low=829, high=1362, size=1)[0],
             'nottooslow': lambda: self.rng.integers(low=473, high=597, size=1)[0],
-            'fast': lambda: self.rng.integers(low=202, high=397, size=1)[0],
+            'fast': lambda: self.rng.integers(low=258, high=297, size=1)[0],
             'ok': lambda: self.rng.integers(low=420, high=521, size=1)[0],
         }
 
@@ -123,7 +123,7 @@ class Autofishing:
                 break
             else:
                 count = count + 1
-                ints = self.rng.integers(low=50, high=60, size=1)
+                ints = self.rng.integers(low=25, high=30, size=1)
                 if count >= ints[0]:
                     print('correct timeout')
                     break
@@ -171,17 +171,19 @@ class Autofishing:
                     break
 
                 prevalRaw = currentValRaw
-                if self.vision.seeFishingButton(frame1):
-                    skipRetract = True
-                    break
-                elif (open := self.vision.seeCardsToOpen(frame1))[0]:
-                    self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
-                elif (openAll := self.vision.seeOpenAll(frame1))[0]:
-                    self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
-                elif (ok := self.vision.seeOk(frame1))[0]:
-                    self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
-                    skipRetract = True
-                    break
+
+                if count % 3 == 0:
+                    if self.vision.seeFishingButton(frame1):
+                        skipRetract = True
+                        break
+                    elif (open := self.vision.seeCardsToOpen(frame1))[0]:
+                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
+                    elif (openAll := self.vision.seeOpenAll(frame1))[0]:
+                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
+                    elif (ok := self.vision.seeOk(frame1))[0]:
+                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
+                        skipRetract = True
+                        break
 
                 self.wait('fast')
 
