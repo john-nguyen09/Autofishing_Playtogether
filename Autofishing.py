@@ -22,6 +22,7 @@ class Autofishing:
         self.winCap = WindowCapture.findAndInit()
         self.vision = Vision(winCap=self.winCap)
         self.winCap.capture()  # To calculate rect
+        self.pause = False
 
         self.waitFuncs = {
             'veryslow': lambda: self.rng.integers(low=2333, high=2720, size=1)[0],
@@ -139,6 +140,9 @@ class Autofishing:
             self.winCap.press(0x4F)
             self.wait('slow')
             self.winCap.press(0x4B)
+        elif self.vision.seeFullBag(frame2)[0]:
+            print('Full bag - go on pause')
+            self.pause = True
         time.sleep(10)
 
     def prepare(self):
@@ -146,6 +150,10 @@ class Autofishing:
 
     def startLoop(self):
         while True:
+            if self.pause:
+                self.wait('veryslow')
+                continue
+
             frame = self.winCap.capture()
             skipRetract = False
 
@@ -180,8 +188,12 @@ class Autofishing:
                         self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
                     elif (openAll := self.vision.seeOpenAll(frame1))[0]:
                         self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
-                    elif (ok := self.vision.seeOk(frame1))[0]:
-                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
+                    elif (yes := self.vision.seeOk(frame1))[0]:
+                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, yes[1], yes[2]))
+                        skipRetract = True
+                        break
+                    elif (yes := self.vision.seeYes(frame1))[0]:
+                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, yes[1], yes[2]))
                         skipRetract = True
                         break
 

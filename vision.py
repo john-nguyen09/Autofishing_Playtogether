@@ -14,6 +14,8 @@ class Vision:
         self.openVi = utils.loadSprite('open-vi.png')
         self.openAllVi = utils.loadSprite('open-all-vi.png')
         self.ok = utils.loadSprite('ok.png')
+        self.yes = utils.loadSprite('yes.png')
+        self.fullBag = utils.loadSprite('full-bag.png')
 
         self.clickHere1 = utils.loadSprite('click-here-1.png')
         self.clickHere2 = utils.loadSprite('click-here-2.png')
@@ -77,3 +79,19 @@ class Vision:
                 return True, start, end
 
         return False, None, None
+
+    def seeYes(self, frame):
+        yesDetected = utils.detectSprite(
+            frame.getNormed(), self.yes, r=self.winCap.ratio)
+
+        # print('yesDetected', yesDetected)
+
+        return yesDetected[0] >= 0.85, yesDetected[1], yesDetected[2]
+
+    def seeFullBag(self, frame):
+        fullBagDetected = utils.detectSprite(
+            frame.getNormed(), self.fullBag, r=self.winCap.ratio)
+
+        print('fullBagDetected', fullBagDetected)
+
+        return fullBagDetected[0] >= 0.85, fullBagDetected[1], fullBagDetected[2]
