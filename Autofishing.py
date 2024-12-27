@@ -133,6 +133,15 @@ class Autofishing:
 
         print('Continue...')
         self.winCap.press(0x4B)
+
+        for i in range(3):
+            frame2 = self.winCap.capture()
+            if self.vision.seeFullBag(frame2)[0]:
+                print('Bag is full - pausing')
+                self.pause = True
+                break
+            self.wait('fast')
+
         time.sleep(2)
         frame2 = self.winCap.capture()
         if self.vision.seeBrokenRod(frame2):
@@ -140,9 +149,6 @@ class Autofishing:
             self.winCap.press(0x4F)
             self.wait('slow')
             self.winCap.press(0x4B)
-        elif self.vision.seeFullBag(frame2)[0]:
-            print('Full bag - go on pause')
-            self.pause = True
         time.sleep(10)
 
     def prepare(self):
