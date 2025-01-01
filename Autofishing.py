@@ -60,13 +60,16 @@ class Autofishing:
         diff = np.subtract(normCurr, normPrev)
         percentage = (np.mean(np.abs(diff) > 2) * 100)
         percentageNegative = (np.mean(diff < 0) * 100)
+        diffTotal = np.sum(np.abs(diff))
+
         result = percentage >= 50
         resultNegative = percentageNegative >= 25 and percentage > 33
+        resultDiffTotal = diffTotal > 21
 
-        print('normPrev, normCurr, diff, percentage, percentageNegative, result, resultNegative',
-              normPrev, normCurr, diff, percentage, percentageNegative, result, resultNegative)
+        print('diff, percentage, percentageNegative, result, resultNegative, resultDiffTotal',
+              diff, percentage, percentageNegative, result, resultNegative, resultDiffTotal)
 
-        return result or resultNegative
+        return result or resultNegative or resultDiffTotal
 
     def isInside(self, pt, rect):
         (pt1, pt2) = rect
@@ -110,17 +113,26 @@ class Autofishing:
                 print('seeFishingButton')
                 break
             elif (open := self.vision.seeCardsToOpen(frame2))[0]:
-                self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
+                self.winCap.leftClick(
+                    utils.getRandomMiddle(self.rng, open[1], open[2]))
                 self.wait('ok')
             elif (openAll := self.vision.seeOpenAll(frame2))[0]:
-                self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
+                self.winCap.leftClick(utils.getRandomMiddle(
+                    self.rng, openAll[1], openAll[2]))
                 self.wait('ok')
             elif (clickHere := self.vision.seeBunchOfClickHere(frame2))[0]:
-                self.winCap.leftClick(utils.getRandomMiddle(self.rng, clickHere[1], clickHere[2]))
+                self.winCap.leftClick(utils.getRandomMiddle(
+                    self.rng, clickHere[1], clickHere[2]))
                 self.wait('ok')
             elif (ok := self.vision.seeOk(frame2))[0]:
-                self.winCap.leftClick(utils.getRandomMiddle(self.rng, ok[1], ok[2]))
+                self.winCap.leftClick(
+                    utils.getRandomMiddle(self.rng, ok[1], ok[2]))
                 self.wait('slow')
+                break
+            elif (yes := self.vision.seeYes(frame2))[0]:
+                self.winCap.leftClick(
+                    utils.getRandomMiddle(self.rng, yes[1], yes[2]))
+                skipRetract = True
                 break
             else:
                 count = count + 1
@@ -191,15 +203,19 @@ class Autofishing:
                         skipRetract = True
                         break
                     elif (open := self.vision.seeCardsToOpen(frame1))[0]:
-                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, open[1], open[2]))
+                        self.winCap.leftClick(
+                            utils.getRandomMiddle(self.rng, open[1], open[2]))
                     elif (openAll := self.vision.seeOpenAll(frame1))[0]:
-                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, openAll[1], openAll[2]))
+                        self.winCap.leftClick(utils.getRandomMiddle(
+                            self.rng, openAll[1], openAll[2]))
                     elif (yes := self.vision.seeOk(frame1))[0]:
-                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, yes[1], yes[2]))
+                        self.winCap.leftClick(
+                            utils.getRandomMiddle(self.rng, yes[1], yes[2]))
                         skipRetract = True
                         break
                     elif (yes := self.vision.seeYes(frame1))[0]:
-                        self.winCap.leftClick(utils.getRandomMiddle(self.rng, yes[1], yes[2]))
+                        self.winCap.leftClick(
+                            utils.getRandomMiddle(self.rng, yes[1], yes[2]))
                         skipRetract = True
                         break
 
