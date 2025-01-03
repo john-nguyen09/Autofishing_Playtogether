@@ -3,9 +3,7 @@ import win32gui
 import win32ui
 import win32con
 import win32api
-from ctypes import windll
 import re
-from PIL import Image
 import cv2
 from frame import Frame
 
@@ -35,8 +33,7 @@ class WindowCapture:
 
         self.hwndChild = win32gui.GetWindow(self.hwnd, win32con.GW_CHILD)
 
-    def capture(self):
-
+    def getWindowSize(self):
         # get the window size
         window_rect = win32gui.GetWindowRect(self.hwnd)
         self.left, self.top, self.right, self.bot = window_rect
@@ -46,6 +43,37 @@ class WindowCapture:
         if self.w != self.prevWidth:
             self.ratio = self.w / self.ORIGINAL_WIDTH
             self.prevWidth = self.w
+
+    def partialCapture(self, pos, width, height):
+        self.getWindowSize()
+
+        wDC = win32gui.GetWindowDC(self.hwnd)
+        dcObj = win32ui.CreateDCFromHandle(wDC)
+        cDC = dcObj.CreateCompatibleDC()
+        dataBitMap = win32ui.CreateBitmap()
+        dataBitMap.CreateCompatibleBitmap(dcObj, width, height)
+        cDC.SelectObject(dataBitMap)
+
+        cDC.BitBlt((0, 0), (width, height), dcObj,
+                   (int(pos[0] - width / 2), int(pos[1] - height / 2)), win32con.SRCCOPY)
+
+        bmpinfo = dataBitMap.GetInfo()
+        signedIntsArray = dataBitMap.GetBitmapBits(True)
+        img = np.frombuffer(signedIntsArray, dtype=np.uint8).reshape(
+            (bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
+
+        dcObj.DeleteDC()
+        cDC.DeleteDC()
+        win32gui.ReleaseDC(self.hwnd, wDC)
+        win32gui.DeleteObject(dataBitMap.GetHandle())
+
+        frame = Frame()
+        frame.setMatrix(img, pos, width, height)
+
+        return frame
+
+    def capture(self):
+        self.getWindowSize()
 
         # get the window image data
         wDC = win32gui.GetWindowDC(self.hwnd)
@@ -60,7 +88,8 @@ class WindowCapture:
 
         bmpinfo = dataBitMap.GetInfo()
         signedIntsArray = dataBitMap.GetBitmapBits(True)
-        img = np.frombuffer(signedIntsArray, dtype=np.uint8).reshape((bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
+        img = np.frombuffer(signedIntsArray, dtype=np.uint8).reshape(
+            (bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4))
 
         # free resources
         dcObj.DeleteDC()
@@ -100,12 +129,15 @@ class WindowCapture:
 
     def leftClick(self, pos):
         posLong = win32api.MAKELONG(int(pos[0]), int(pos[1] - 20))
-        win32gui.SendMessage(self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
+        win32gui.SendMessage(
+            self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
         win32gui.PostMessage(self.hwndChild, win32con.WM_MOUSEMOVE, 0, posLong)
         cv2.waitKey(30)
-        win32api.PostMessage(self.hwndChild, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, posLong)
-        cv2.waitKey(40)
-        win32api.PostMessage(self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
+        win32api.PostMessage(
+            self.hwndChild, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, posLong)
+        cv2.waitKey(10)
+        win32api.PostMessage(
+            self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
     # find the name of the window you're interested in.
     # once you have it, update window_capture()
@@ -122,11 +154,17 @@ class WindowCapture:
         return names
 
     @staticmethod
-    def findAndInit():
+    def findAll():
         matchedNames = []
         for name in WindowCapture.listWindowNames():
             if re.search('^LDPlayer', name):
                 matchedNames.append(name)
+
+        return matchedNames
+
+    @staticmethod
+    def findAndInit():
+        matchedNames = WindowCapture.findAll()
 
         targetName = ''
         if len(matchedNames) == 0:

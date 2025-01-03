@@ -29,6 +29,7 @@ class Autofishing:
             'slow': lambda: self.rng.integers(low=829, high=1362, size=1)[0],
             'nottooslow': lambda: self.rng.integers(low=473, high=597, size=1)[0],
             'fast': lambda: self.rng.integers(low=258, high=297, size=1)[0],
+            'fishBiting': lambda: self.rng.integers(low=158, high=187, size=1)[0],
             'ok': lambda: self.rng.integers(low=420, high=521, size=1)[0],
         }
 
@@ -144,7 +145,7 @@ class Autofishing:
             print('correct continue')
 
         print('Continue...')
-        self.winCap.press(0x4B)
+        self.winCap.press(0x4B)  # press k
 
         for i in range(3):
             frame2 = self.winCap.capture()
@@ -187,18 +188,21 @@ class Autofishing:
                     self.wait('ok')
                     break
 
-                frame1 = self.winCap.capture()
-                currentVal = self.winCap.getPixVal(
-                    self.exclamationPoint, frame1)
-                currentValRaw = self.winCap.getPixVal(
-                    self.exclamationPoint, frame1, raw=True)
+                # frame1 = self.winCap.capture()
+                partialFrame = self.winCap.partialCapture(
+                    self.exclamationPoint, 150, 150)
 
-                if self.pixelValuesChanged(prevalRaw, currentValRaw) and currentVal > 50 and currentVal < 247:
+                currentVal = partialFrame.getPixVal(self.exclamationPoint)
+                currentValRaw = partialFrame.getPixVal(
+                    self.exclamationPoint, raw=True)
+
+                if self.pixelValuesChanged(prevalRaw, currentValRaw) and currentVal > 27 and currentVal < 247:
                     break
 
                 prevalRaw = currentValRaw
 
-                if count % 3 == 0:
+                if count % 7 == 0:
+                    frame1 = self.winCap.capture()
                     if self.vision.seeFishingButton(frame1):
                         skipRetract = True
                         break
@@ -219,7 +223,7 @@ class Autofishing:
                         skipRetract = True
                         break
 
-                self.wait('fast')
+                self.wait('fishBiting')
 
             self.correct(skipRetract)
 

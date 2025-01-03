@@ -22,6 +22,11 @@ class Vision:
         self.clickHere3 = utils.loadSprite('click-here-3.png')
         self.clickHere4 = utils.loadSprite('click-here-4.png')
 
+        self.mine = utils.loadSprite('mine.png')
+        self.gottaAimAndHit = utils.loadSprite('gotta-aim-and-hit.png')
+        self.hitMissing = utils.loadSprite('hit-missing.png')
+        self.hitTheVoid = utils.loadSprite('hit-the-void.png')
+
     def seeBrokenRod(self, frame):
         detectedVi = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.brokenRodTitleVi, self.brokenRodTextVi]]
@@ -75,7 +80,7 @@ class Vision:
         # print('detectedClickHere', detectedClickHere)
 
         for (match, start, end) in detectedClickHere:
-            if match >= 0.8:
+            if match >= 0.7:
                 return True, start, end
 
         return False, None, None
@@ -92,6 +97,26 @@ class Vision:
         fullBagDetected = utils.detectSprite(
             frame.getNormed(), self.fullBag, r=self.winCap.ratio)
 
-        print('fullBagDetected', fullBagDetected)
+        # print('fullBagDetected', fullBagDetected)
 
         return fullBagDetected[0] >= 0.85, fullBagDetected[1], fullBagDetected[2]
+
+    def seeMine(self, frame):
+        mineDetected = utils.detectSprite(
+            frame.getNormed(), self.mine, r=self.winCap.ratio)
+
+        # print('mineDetected', mineDetected)
+
+        return mineDetected[0] >= 0.55, mineDetected[1], mineDetected[2]
+
+    def seeCannotMine(self, frame):
+        cantHitDtected = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
+            self.hitMissing, self.hitTheVoid, self.gottaAimAndHit]]
+
+        print(list(map(lambda detected: detected[0], cantHitDtected)))
+
+        for (match, start, end) in cantHitDtected:
+            if match >= 0.7:
+                return True, start, end
+
+        return False, None, None
