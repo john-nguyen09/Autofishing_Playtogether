@@ -99,7 +99,7 @@ class Vision:
 
         # print('fullBagDetected', fullBagDetected)
 
-        return fullBagDetected[0] >= 0.85, fullBagDetected[1], fullBagDetected[2]
+        return fullBagDetected[0] >= 0.7, fullBagDetected[1], fullBagDetected[2]
 
     def seeMine(self, frame):
         mineDetected = utils.detectSprite(

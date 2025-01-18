@@ -3,13 +3,19 @@ import win32gui
 import win32ui
 import win32con
 import win32api
-import re
+from ctypes import windll
 import cv2
+import pymem
 from frame import Frame
+from ProcessManager import ProcessManager
+import math
 
 
 class WindowCapture:
-
+    BYTES_SEARCH_PATTERN = b'\\x02\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00.\\x00\\x00\\x00.\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00...........................\\x3E\\xCD\\xCC......................\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00....\\x00.......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00.....\\x00\\x00........................\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x20\\x41\\xCD\\xCC\\x4C\\x3E......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x80\\x3F\\x00\\x00\\x00\\x00....\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00.\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00..\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00'
+    OFFSET_BALO = 501
+    OFFSET_FISING_STATE = 296
+    OFFSET_ROD = 497
     ORIGINAL_WIDTH = 1247
 
     # threading properties
@@ -26,19 +32,29 @@ class WindowCapture:
     frame = Frame()
 
     # constructor
-    def __init__(self, window_name):
-        self.hwnd = win32gui.FindWindow(None, window_name)
+    def __init__(self, windowName, headlessPID):
+        self.hwnd = win32gui.FindWindow(None, windowName)
         if not self.hwnd:
-            raise Exception('Window not found: {}'.format(window_name))
-
+            raise Exception('Window not found: {}'.format(windowName))
         self.hwndChild = win32gui.GetWindow(self.hwnd, win32con.GW_CHILD)
+        self.scaleRate = self.getWindowDpiScale(self.hwndChild)
+        self.headlessPID = headlessPID
+        self.pm = pymem.Pymem()
+        self.pm.open_process_from_id(self.headlessPID)
+
+        print('Reading LDPlayer\' memory state, please wait')
+        self.baloAddresses = pymem.pattern.pattern_scan_all(
+            self.pm.process_handle, self.BYTES_SEARCH_PATTERN, return_multiple=True)
+        self.baloAddresses = [x + self.OFFSET_BALO for x in self.baloAddresses]
+        self.baloAddr = self.baloAddresses[0]
+        print('Done reading memory')
 
     def getWindowSize(self):
         # get the window size
         window_rect = win32gui.GetWindowRect(self.hwnd)
         self.left, self.top, self.right, self.bot = window_rect
-        self.w = self.right - self.left
-        self.h = self.bot - self.top
+        self.w = math.ceil((self.right - self.left) * self.scaleRate)
+        self.h = math.ceil((self.bot - self.top) * self.scaleRate)
 
         if self.w != self.prevWidth:
             self.ratio = self.w / self.ORIGINAL_WIDTH
@@ -83,8 +99,8 @@ class WindowCapture:
         dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
         cDC.SelectObject(dataBitMap)
 
-        cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (0, 0), win32con.SRCCOPY)
-        # windll.user32.PrintWindow(self.hwnd, cDC.GetSafeHdc(), 3)
+        # cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (0, 0), win32con.SRCCOPY)
+        windll.user32.PrintWindow(self.hwnd, cDC.GetSafeHdc(), 3)
 
         bmpinfo = dataBitMap.GetInfo()
         signedIntsArray = dataBitMap.GetBitmapBits(True)
@@ -98,6 +114,8 @@ class WindowCapture:
         win32gui.DeleteObject(dataBitMap.GetHandle())
 
         self.frame.setMatrix(img)
+
+        # cv2.imshow('Test', self.frame.matrix)
 
         return self.frame
 
@@ -139,50 +157,51 @@ class WindowCapture:
         win32api.PostMessage(
             self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
-    # find the name of the window you're interested in.
-    # once you have it, update window_capture()
-    # https://stackoverflow.com/questions/55547940/how-to-get-a-list-of-the-name-of-every-open-window
+    def adjustBaloAddr(self, expectedStates):
+        for addr in self.baloAddresses:
+            state = self.pm.read_int(addr + self.OFFSET_FISING_STATE)
+            print('adjustBaloAddr state', state)
+            if state in expectedStates:
+                if self.baloAddr == addr:
+                    break
+                print(
+                    f'self adjusting to {addr} because {state} in {expectedStates}')
+                self.baloAddr = addr
+                break
 
-    @staticmethod
-    def listWindowNames():
-        names = []
+    def getFishingState(self):
+        return self.pm.read_int(self.baloAddr + self.OFFSET_FISING_STATE)
 
-        def winEnumHandler(hwnd, ctx):
-            if win32gui.IsWindowVisible(hwnd):
-                names.append(win32gui.GetWindowText(hwnd))
-        win32gui.EnumWindows(winEnumHandler, None)
-        return names
-
-    @staticmethod
-    def findAll():
-        matchedNames = []
-        for name in WindowCapture.listWindowNames():
-            if re.search('^LDPlayer', name):
-                matchedNames.append(name)
-
-        return matchedNames
+    def getWindowDpiScale(self, hwnd):
+        return windll.user32.GetDpiForWindow(hwnd) / 96.0
 
     @staticmethod
     def findAndInit():
-        matchedNames = WindowCapture.findAll()
+        processManager = ProcessManager()
 
-        targetName = ''
-        if len(matchedNames) == 0:
+        windowName = None
+        headlessPID = None
+        index = None
+
+        if len(processManager.windows) == 0:
             print('No LDPlayer found')
             exit(1)
-        elif len(matchedNames) == 1:
-            targetName = matchedNames[0]
+        elif len(processManager.windows) == 1:
+            index = 0
         else:
-            for i, name in enumerate(matchedNames):
-                print(f'{i}. {name}')
+            for i, window in enumerate(processManager.windows):
+                print(f'{i}. %s'.format(window['name']))
             print('What window?: ')
 
-            while len(targetName) == 0:
+            while windowName is None:
                 idx = int(input())
 
-                if idx < 0 or idx > len(matchedNames):
+                if idx < 0 or idx > len(processManager.windows):
                     print('Invalid input, try again')
                 else:
-                    targetName = matchedNames[idx]
+                    index = idx
 
-        return WindowCapture(targetName)
+        windowName = processManager.windows[index]['name']
+        headlessPID = processManager.headlessProcesses[index]['pid']
+
+        return WindowCapture(windowName, headlessPID)

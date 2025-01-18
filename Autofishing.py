@@ -25,6 +25,7 @@ class Autofishing:
         self.pause = False
 
         self.waitFuncs = {
+            '5s': lambda: self.rng.integers(low=4666, high=5222, size=1)[0],
             'veryslow': lambda: self.rng.integers(low=2333, high=2720, size=1)[0],
             'slow': lambda: self.rng.integers(low=829, high=1362, size=1)[0],
             'nottooslow': lambda: self.rng.integers(low=473, high=597, size=1)[0],
@@ -83,20 +84,19 @@ class Autofishing:
 
         return True
 
-    def getInput(self):
-        left, top, right, bot = self.winCap.left, self.winCap.top, self.winCap.right, self.winCap.bot
+    # def getInput(self):
+    #     left, top, right, bot = self.winCap.left, self.winCap.top, self.winCap.right, self.winCap.bot
 
-        print('Select exclamation mark location: ')
-        while True:
-            exclamationPoint = self.detectClick()
+    #     print('Select exclamation mark location: ')
+    #     while True:
+    #         exclamationPoint = self.detectClick()
 
-            if self.isInside(exclamationPoint, ((left, top), (right, bot))):
-                break
+    #         if self.isInside(exclamationPoint, ((left, top), (right, bot))):
+    #             break
 
-        return self.winCap.toRelative(exclamationPoint)
+    #     return self.winCap.toRelative(exclamationPoint)
 
     def correct(self, skipRetract):
-        print('''It's real!''')
         if not skipRetract:
             self.winCap.press(0x20)
         count = 0
@@ -155,7 +155,9 @@ class Autofishing:
                 break
             self.wait('fast')
 
-        time.sleep(2)
+        self.wait('nottooslow')
+        self.winCap.adjustBaloAddr([1, 2, 3])
+        time.sleep(1)
         frame2 = self.winCap.capture()
         if self.vision.seeBrokenRod(frame2):
             self.repair()
@@ -164,8 +166,8 @@ class Autofishing:
             self.winCap.press(0x4B)
         time.sleep(10)
 
-    def prepare(self):
-        self.exclamationPoint = self.getInput()
+    # def prepare(self):
+    #     self.exclamationPoint = self.getInput()
 
     def startLoop(self):
         while True:
@@ -176,9 +178,8 @@ class Autofishing:
             frame = self.winCap.capture()
             skipRetract = False
 
-            prevalRaw = self.winCap.getPixVal(
-                self.exclamationPoint, frame, raw=True)
             count = 0
+            previousState = None
 
             while True:
                 count = count + 1
@@ -189,24 +190,27 @@ class Autofishing:
                     break
 
                 # frame1 = self.winCap.capture()
-                partialFrame = self.winCap.partialCapture(
-                    self.exclamationPoint, 150, 150)
+                state = self.winCap.getFishingState()
 
-                currentVal = partialFrame.getPixVal(self.exclamationPoint)
-                currentValRaw = partialFrame.getPixVal(
-                    self.exclamationPoint, raw=True)
+                print('state', state)
 
-                if self.pixelValuesChanged(prevalRaw, currentValRaw) and currentVal > 27 and currentVal < 247:
-                    break
-
-                prevalRaw = currentValRaw
-
-                if count % 7 == 0:
-                    frame1 = self.winCap.capture()
-                    if self.vision.seeFishingButton(frame1):
-                        skipRetract = True
-                        break
-                    elif (open := self.vision.seeCardsToOpen(frame1))[0]:
+                if state == 0:  # Idle state
+                    # print('Idle???')
+                    pass
+                elif state == 1:
+                    # print("Starting fishing")
+                    pass
+                elif state == 3:
+                    # print("Fishing")
+                    pass
+                elif state == 4:
+                    # print("Fish appears")
+                    pass
+                elif state == 5:
+                    print("It's reel")
+                    self.winCap.press(0x20)
+                elif state == 9:
+                    if (open := self.vision.seeCardsToOpen(frame1))[0]:
                         self.winCap.leftClick(
                             utils.getRandomMiddle(self.rng, open[1], open[2]))
                     elif (openAll := self.vision.seeOpenAll(frame1))[0]:
@@ -220,6 +224,44 @@ class Autofishing:
                     elif (yes := self.vision.seeYes(frame1))[0]:
                         self.winCap.leftClick(
                             utils.getRandomMiddle(self.rng, yes[1], yes[2]))
+                        skipRetract = True
+                        break
+                    else:
+                        skipRetract = True
+                        break
+                elif state == 11:  # Rod broken
+                    self.repair()
+                    self.winCap.press(0x4F)
+                    self.wait('slow')
+                    self.winCap.press(0x4B)
+                elif state == 12:  # Line broken
+                    print("Rotten luck")
+                    skipRetract = True
+                    break
+                elif state == 15:  # VIP fish states
+                    if previousState != 15:
+                        print('Got giant fish')
+                        self.winCap.press(0x20)
+                        previousState = 15
+                elif state == 16:
+                    print('Waiting for giant fish')
+                elif state == 17:
+                    print('Giant fish trying to get away')
+                    self.winCap.press(0x20)
+                elif state == 18:
+                    print('Got a hold of giant fish')
+                elif state == 20:
+                    print('Got giant fish')
+                    self.wait('5s')
+                elif state == 24:
+                    print('Giant fish stunned')
+                    self.winCap.press(0x20)
+                elif state == 25:
+                    print('Giant fish not stunned')
+
+                if count % 7 == 0:
+                    frame1 = self.winCap.capture()
+                    if self.vision.seeFishingButton(frame1):
                         skipRetract = True
                         break
 
@@ -245,10 +287,10 @@ def main():
         for theThread in theThreads:
             theThread.start()
 
-        bot.prepare()
+        # bot.prepare()
 
-        print('Auto fishing will be started after 2 seconds')
-        time.sleep(2)
+        # print('Auto fishing will be started after 2 seconds')
+        # time.sleep(2)
 
         bot.startLoop()
     except Exception as e:
