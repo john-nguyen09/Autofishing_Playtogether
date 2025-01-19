@@ -30,7 +30,7 @@ class Autofishing:
             'slow': lambda: self.rng.integers(low=829, high=1362, size=1)[0],
             'nottooslow': lambda: self.rng.integers(low=473, high=597, size=1)[0],
             'fast': lambda: self.rng.integers(low=258, high=297, size=1)[0],
-            'fishBiting': lambda: self.rng.integers(low=158, high=187, size=1)[0],
+            'fishBiting': lambda: self.rng.integers(low=248, high=311, size=1)[0],
             'ok': lambda: self.rng.integers(low=420, high=521, size=1)[0],
         }
 
@@ -185,11 +185,11 @@ class Autofishing:
                 count = count + 1
                 ints = self.rng.integers(low=180, high=289, size=1)
 
-                if count >= ints[0]:
-                    self.wait('ok')
-                    break
+                if previousState not in [15, 16, 17, 18, 20, 24, 25]:
+                    if count >= ints[0]:
+                        self.wait('ok')
+                        break
 
-                # frame1 = self.winCap.capture()
                 state = self.winCap.getFishingState()
 
                 print('state', state)
@@ -210,6 +210,7 @@ class Autofishing:
                     print("It's reel")
                     self.winCap.press(0x20)
                 elif state == 9:
+                    frame1 = self.winCap.capture()
                     if (open := self.vision.seeCardsToOpen(frame1))[0]:
                         self.winCap.leftClick(
                             utils.getRandomMiddle(self.rng, open[1], open[2]))
@@ -241,13 +242,12 @@ class Autofishing:
                 elif state == 15:  # VIP fish states
                     if previousState != 15:
                         print('Got giant fish')
-                        self.winCap.press(0x20)
-                        previousState = 15
+                        self.winCap.press(0x20, single=True)
                 elif state == 16:
                     print('Waiting for giant fish')
                 elif state == 17:
                     print('Giant fish trying to get away')
-                    self.winCap.press(0x20)
+                    self.winCap.press(0x20, single=True)
                 elif state == 18:
                     print('Got a hold of giant fish')
                 elif state == 20:
@@ -255,7 +255,7 @@ class Autofishing:
                     self.wait('5s')
                 elif state == 24:
                     print('Giant fish stunned')
-                    self.winCap.press(0x20)
+                    self.winCap.press(0x20, single=True)
                 elif state == 25:
                     print('Giant fish not stunned')
 
@@ -265,6 +265,8 @@ class Autofishing:
                         skipRetract = True
                         break
 
+                if previousState != state:
+                    previousState = state
                 self.wait('fishBiting')
 
             self.correct(skipRetract)

@@ -55,7 +55,7 @@ class Vision:
 
         # print('openDetected', openDetected)
 
-        return openDetected[0] >= 0.7, openDetected[1], openDetected[2]
+        return openDetected[0] >= 0.83, openDetected[1], openDetected[2]
 
     def seeOpenAll(self, frame):
         openAllDetected = utils.detectSprite(

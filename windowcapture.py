@@ -135,18 +135,19 @@ class WindowCapture:
     def toRelative(self, pt):
         return pt[0] - self.left, pt[1] - self.top
 
-    def press(self, vk_code):
+    def press(self, vk_code, single=False):
         '''Press any key using win32api.Sendmessage'''
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
         cv2.waitKey(11)
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
         cv2.waitKey(7)
-        win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
-        cv2.waitKey(11)
-        win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
+        if not single:
+            win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
+            cv2.waitKey(11)
+            win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
 
     def leftClick(self, pos):
-        posLong = win32api.MAKELONG(int(pos[0]), int(pos[1] - 20))
+        posLong = win32api.MAKELONG(math.ceil(pos[0] / self.scaleRate), math.ceil((pos[1] / self.scaleRate) - 20))
         win32gui.SendMessage(
             self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
         win32gui.PostMessage(self.hwndChild, win32con.WM_MOUSEMOVE, 0, posLong)
