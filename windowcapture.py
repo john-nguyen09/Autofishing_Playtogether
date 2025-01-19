@@ -179,6 +179,7 @@ class WindowCapture:
     @staticmethod
     def findAndInit():
         processManager = ProcessManager()
+        print(processManager.processes)
 
         windowName = None
         headlessPID = None
@@ -191,10 +192,10 @@ class WindowCapture:
             index = 0
         else:
             for i, window in enumerate(processManager.windows):
-                print(f'{i}. %s'.format(window['name']))
+                print('{}. {}'.format(i, window['name']))
             print('What window?: ')
 
-            while windowName is None:
+            while index is None:
                 idx = int(input())
 
                 if idx < 0 or idx > len(processManager.windows):
