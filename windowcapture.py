@@ -12,7 +12,7 @@ import math
 
 
 class WindowCapture:
-    BYTES_SEARCH_PATTERN = b'\\x02\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00.\\x00\\x00\\x00.\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00...........................\\x3E\\xCD\\xCC......................\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00....\\x00.......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00.....\\x00\\x00........................\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x20\\x41\\xCD\\xCC\\x4C\\x3E......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x80\\x3F\\x00\\x00\\x00\\x00....\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00.\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00..\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00'
+    BYTES_SEARCH_PATTERN = b'\\x02\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00.\\x00\\x00\\x00.\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00...........................\\x3E\\xCD\\xCC..........................\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00....\\x00.......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00.....\\x00\\x00........................\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x20\\x41\\xCD\\xCC\\x4C\\x3E......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00......\\x00\\x00\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x80\\x3F\\x00\\x00\\x00\\x00....\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00..\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00..\\x00\\x00\\x00\\x00\\x00\\x00......\\x00\\x00......\\x00\\x00'
     OFFSET_BALO = 501
     OFFSET_FISING_STATE = 296
     OFFSET_ROD = 497
@@ -32,21 +32,34 @@ class WindowCapture:
     frame = Frame()
 
     # constructor
-    def __init__(self, windowName, headlessPID):
+    def __init__(self, windowName, headlessPID, noMem=False):
         self.hwnd = win32gui.FindWindow(None, windowName)
         if not self.hwnd:
             raise Exception('Window not found: {}'.format(windowName))
         self.hwndChild = win32gui.GetWindow(self.hwnd, win32con.GW_CHILD)
         self.scaleRate = self.getWindowDpiScale(self.hwndChild)
         self.headlessPID = headlessPID
-        self.pm = pymem.Pymem()
-        self.pm.open_process_from_id(self.headlessPID)
 
-        print('Reading LDPlayer\' memory state, please wait')
-        self.baloAddresses = pymem.pattern.pattern_scan_all(
-            self.pm.process_handle, self.BYTES_SEARCH_PATTERN, return_multiple=True)
-        self.baloAddresses = [x + self.OFFSET_BALO for x in self.baloAddresses]
-        self.baloAddr = self.baloAddresses[0]
+        if not noMem:
+            self.pm = pymem.Pymem()
+            self.pm.open_process_from_id(self.headlessPID)
+
+            self.readMemoryTilDeath()
+
+    def readMemoryTilDeath(self):
+        self.baloAddr = None
+
+        while self.baloAddr is None:
+            print('Reading LDPlayer\' memory state, please wait', self.headlessPID)
+            self.baloAddresses = pymem.pattern.pattern_scan_all(
+                self.pm.process_handle, self.BYTES_SEARCH_PATTERN, return_multiple=True)
+            self.baloAddresses = [x + self.OFFSET_BALO for x in self.baloAddresses]
+
+            if len(self.baloAddresses) == 0:
+                print('Có cái nịt, thử lại nào')
+                continue
+
+            self.baloAddr = self.baloAddresses[0]
         print('Done reading memory')
 
     def getWindowSize(self):
@@ -159,16 +172,23 @@ class WindowCapture:
             self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
     def adjustBaloAddr(self, expectedStates):
+        found = False
+
         for addr in self.baloAddresses:
             state = self.pm.read_int(addr + self.OFFSET_FISING_STATE)
-            print('adjustBaloAddr state', state)
+            print('adjustBaloAddr state', state, addr)
             if state in expectedStates:
                 if self.baloAddr == addr:
+                    found = True
                     break
                 print(
                     f'self adjusting to {addr} because {state} in {expectedStates}')
                 self.baloAddr = addr
+                found = True
                 break
+
+        if not found:
+            self.readMemoryTilDeath()
 
     def getFishingState(self):
         return self.pm.read_int(self.baloAddr + self.OFFSET_FISING_STATE)

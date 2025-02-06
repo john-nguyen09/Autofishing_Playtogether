@@ -156,7 +156,7 @@ class Autofishing:
             self.wait('fast')
 
         self.wait('nottooslow')
-        self.winCap.adjustBaloAddr([1, 2, 3])
+        self.winCap.adjustBaloAddr([1, 2, 3, 11])
         time.sleep(1)
         frame2 = self.winCap.capture()
         if self.vision.seeBrokenRod(frame2):

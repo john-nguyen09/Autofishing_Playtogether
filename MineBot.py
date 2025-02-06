@@ -7,8 +7,8 @@ import tkinter as tk
 from functools import partial
 from pynput import keyboard
 from threading import Lock, Thread
-import utils
 from queue import Queue
+from ProcessManager import ProcessManager
 
 
 class WindowThread(Thread):
@@ -76,11 +76,12 @@ class Autokey:
         )
         self.listener.start()
 
-        allWindows = WindowCapture.findAll()
-        allWindows.sort()
-        for window in allWindows:
-            winCap = WindowCapture(window)
-            self.allWindows[window] = {
+        processManager = ProcessManager()
+        allWindows = processManager.windows
+        for idx, window in enumerate(allWindows):
+            winCap = WindowCapture(
+                window['name'], processManager.headlessProcesses[idx]['pid'], noMem=True)
+            self.allWindows[window['name']] = {
                 'winCap': winCap,
                 'vision': Vision(winCap=winCap),
                 'thread': None,
