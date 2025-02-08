@@ -107,6 +107,7 @@ class Autofishing:
             if self.vision.seeStoreButton(frame2):
                 print('seeStoreButton')
                 self.wait('ok')
+                self.winCap.numSuccessReel += 1
                 self.winCap.press(0x4C)  # press(L)
                 self.wait('slow')
                 break
