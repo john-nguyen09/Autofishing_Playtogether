@@ -17,12 +17,17 @@ class Autofishing:
 
     exclamationPoint = None
 
+    ACTION_START_FISHING = 1
+    ACTION_STORE_FISH = 4
+
     def __init__(self):
         self.rng = np.random.default_rng(seed=6994420)
         self.winCap = WindowCapture.findAndInit()
         self.vision = Vision(winCap=self.winCap)
         self.winCap.capture()  # To calculate rect
         self.pause = False
+
+        self.action = None
 
         self.waitFuncs = {
             '5s': lambda: self.rng.integers(low=4666, high=5222, size=1)[0],
@@ -105,6 +110,7 @@ class Autofishing:
 
             frame2 = self.winCap.capture()
             if self.vision.seeStoreButton(frame2):
+                self.action = self.ACTION_STORE_FISH
                 print('seeStoreButton')
                 self.wait('ok')
                 self.winCap.numSuccessReel += 1
@@ -147,6 +153,9 @@ class Autofishing:
 
         print('Continue...')
         self.winCap.press(0x4B)  # press k
+        if self.action == self.ACTION_START_FISHING:
+            self.winCap.onFailedReel()
+        self.action = self.ACTION_START_FISHING
 
         for i in range(3):
             frame2 = self.winCap.capture()

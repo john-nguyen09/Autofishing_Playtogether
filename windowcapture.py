@@ -205,6 +205,9 @@ class WindowCapture:
     def getWindowDpiScale(self, hwnd):
         return windll.user32.GetDpiForWindow(hwnd) / 96.0
 
+    def onFailedReel(self):
+        self.baloAddresses.remove(self.baloAddr)
+
     @staticmethod
     def findAndInit():
         processManager = ProcessManager()
