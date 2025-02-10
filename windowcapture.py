@@ -33,7 +33,6 @@ class WindowCapture:
     ratio = 1
     prevWidth = ORIGINAL_WIDTH
     frame = Frame()
-    numSuccessReel = 0
 
     # constructor
     def __init__(self, windowName, headlessPID, noMem=False):
@@ -178,9 +177,6 @@ class WindowCapture:
             self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
     def adjustBaloAddr(self, expectedStates):
-        if self.numSuccessReel > 1:
-            return
-
         found = False
 
         for addr in self.baloAddresses:

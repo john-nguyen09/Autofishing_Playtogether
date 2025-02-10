@@ -17,8 +17,7 @@ class Autofishing:
 
     exclamationPoint = None
 
-    ACTION_START_FISHING = 1
-    ACTION_STORE_FISH = 4
+    addressCounters = {}
 
     def __init__(self):
         self.rng = np.random.default_rng(seed=6994420)
@@ -26,8 +25,6 @@ class Autofishing:
         self.vision = Vision(winCap=self.winCap)
         self.winCap.capture()  # To calculate rect
         self.pause = False
-
-        self.action = None
 
         self.waitFuncs = {
             '5s': lambda: self.rng.integers(low=4666, high=5222, size=1)[0],
@@ -110,7 +107,7 @@ class Autofishing:
 
             frame2 = self.winCap.capture()
             if self.vision.seeStoreButton(frame2):
-                self.action = self.ACTION_STORE_FISH
+                self.onCaughtFish()
                 print('seeStoreButton')
                 self.wait('ok')
                 self.winCap.numSuccessReel += 1
@@ -121,6 +118,7 @@ class Autofishing:
                 print('seeFishingButton')
                 break
             elif (open := self.vision.seeCardsToOpen(frame2))[0]:
+                self.onGotCard()
                 self.winCap.leftClick(
                     utils.getRandomMiddle(self.rng, open[1], open[2]))
                 self.wait('ok')
@@ -152,10 +150,13 @@ class Autofishing:
             print('correct continue')
 
         print('Continue...')
-        self.winCap.press(0x4B)  # press k
-        if self.action == self.ACTION_START_FISHING:
+        self.onCasting()
+        self.winCap.press(0x4B, single=True)  # press k
+
+        self.ensureInitAddressCounters()
+        counters = self.addressCounters[self.winCap.baloAddr]
+        if counters['numCasting'] > 1 and counters['numReel'] == 0 and counters['numBrokenRod'] == 0 and counters['numCards'] == 0:
             self.winCap.onFailedReel()
-        self.action = self.ACTION_START_FISHING
 
         for i in range(3):
             frame2 = self.winCap.capture()
@@ -166,10 +167,12 @@ class Autofishing:
             self.wait('fast')
 
         self.wait('nottooslow')
-        self.winCap.adjustBaloAddr([1, 2, 3, 11])
+        if counters['numReel'] == 0:
+            self.winCap.adjustBaloAddr([1, 2, 3, 11])
         time.sleep(1)
         frame2 = self.winCap.capture()
         if self.vision.seeBrokenRod(frame2):
+            self.onBrokenRod()
             self.repair()
             self.winCap.press(0x4F)
             self.wait('slow')
@@ -178,6 +181,39 @@ class Autofishing:
 
     # def prepare(self):
     #     self.exclamationPoint = self.getInput()
+
+    def ensureInitAddressCounters(self):
+        if self.winCap.baloAddr in self.addressCounters:
+            return
+
+        self.addressCounters[self.winCap.baloAddr] = {
+            'numCaughtFish': 0,
+            'numCasting': 0,
+            'numBrokenRod': 0,
+            'numReel': 0,
+            'numCards': 0,
+        }
+
+    def onCasting(self):
+        self.ensureInitAddressCounters()
+        self.addressCounters[self.winCap.baloAddr]['numCasting'] += 1
+
+    def onCaughtFish(self):
+        self.ensureInitAddressCounters()
+        self.addressCounters[self.winCap.baloAddr]['numCaughtFish'] += 1
+
+    def onBrokenRod(self):
+        self.ensureInitAddressCounters()
+        self.addressCounters[self.winCap.baloAddr]['numBrokenRod'] += 1
+
+    def onReel(self):
+        self.ensureInitAddressCounters()
+        print("It's reel")
+        self.addressCounters[self.winCap.baloAddr]['numReel'] += 1
+
+    def onGotCard(self):
+        self.ensureInitAddressCounters()
+        self.addressCounters[self.winCap.baloAddr]['numCards'] += 1
 
     def startLoop(self):
         while True:
@@ -217,8 +253,8 @@ class Autofishing:
                     # print("Fish appears")
                     pass
                 elif state == 5:
-                    print("It's reel")
-                    self.winCap.press(0x20)
+                    self.onReel()
+                    self.winCap.press(0x20, single=True)
                 elif state == 9:
                     frame1 = self.winCap.capture()
                     if (open := self.vision.seeCardsToOpen(frame1))[0]:
@@ -282,6 +318,7 @@ class Autofishing:
             self.correct(skipRetract)
 
             if self.vision.seeBrokenRod(frame):
+                self.onBrokenRod()
                 self.repair()
                 self.winCap.press(0x4F)
                 self.wait('slow')
