@@ -110,7 +110,7 @@ class Autofishing:
                 self.onCaughtFish()
                 print('seeStoreButton')
                 self.wait('ok')
-                self.winCap.numSuccessReel += 1
+                
                 self.winCap.press(0x4C)  # press(L)
                 self.wait('slow')
                 break
