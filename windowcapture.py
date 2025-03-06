@@ -17,7 +17,7 @@ class WindowCapture:
     # 012C = 300 - Balo open
     # OFFSET_BALO = 214
     OFFSET_BALO = 428
-    OFFSET_FISING_STATE = 296
+    OFFSET_FISING_STATE = 304
     OFFSET_ROD = 497
     ORIGINAL_WIDTH = 1247
 
@@ -58,6 +58,9 @@ class WindowCapture:
             self.baloAddresses = pymem.pattern.pattern_scan_all(
                 self.pm.process_handle, self.BYTES_SEARCH_PATTERN, return_multiple=True)
             print('self.baloAddresses', self.baloAddresses)
+            for x in self.baloAddresses:
+                if x == 1378250972:
+                    print(x)
             self.baloAddresses = [x + self.OFFSET_BALO for x in self.baloAddresses]
 
             if len(self.baloAddresses) == 0:
