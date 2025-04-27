@@ -7,9 +7,11 @@ import traceback
 import win32gui
 import sys
 import io
+import os
 from Autofishing import Autofishing
 from ProcessManager import ProcessManager
 from windowcapture import WindowCapture
+from updater import AutoUpdater
 
 # This will hide the console window
 import win32con
@@ -87,6 +89,10 @@ class AutofishingGUI:
         self.root.title("Autofishing Control Panel")
         self.root.geometry("450x200")
 
+        # Initialize auto updater
+        self.updater = AutoUpdater(
+            repo_url="https://github.com/john-nguyen09/Autofishing_Playtogether")
+
         # Initialize process manager
         self.process_manager = ProcessManager()
 
@@ -103,6 +109,8 @@ class AutofishingGUI:
         # Start the message checking loop
         self.check_messages()
 
+        self.root.after(1000, self.check_for_updates)
+
     def create_widgets(self):
         # Top frame for controls
         top_frame = ttk.Frame(self.root, padding="10")
@@ -117,7 +125,7 @@ class AutofishingGUI:
 
         # Refresh button
         self.refresh_button = ttk.Button(
-            top_frame, text="↻", width=2, command=self.refresh_windows)
+            top_frame, text="Refresh", command=self.refresh_windows)
         self.refresh_button.pack(side=tk.LEFT, padx=(0, 10))
 
         # Start button
@@ -141,8 +149,28 @@ class AutofishingGUI:
 
         self.tab_control.bind("<<NotebookTabChanged>>", self.on_tab_selected)
 
+        # Add a status bar
+        self.status_var = tk.StringVar()
+        self.status_var.set("Ready")
+        status_bar = ttk.Label(
+            self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
+        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
         # Populate windows dropdown
         self.refresh_windows()
+
+    def check_for_updates(self):
+        """Check for updates and prompt user if an update is available"""
+        self.status_var.set("Checking for updates...")
+        self.root.update_idletasks()
+
+        # Run update check in a separate thread to not block UI
+        def check_update_thread():
+            update_available = self.updater.update_if_available(self.root)
+            if not update_available:
+                self.status_var.set("Ready - No updates available")
+
+        threading.Thread(target=check_update_thread, daemon=True).start()
 
     def refresh_windows(self):
         # Reinitialize process manager to get updated window list
