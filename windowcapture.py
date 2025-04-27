@@ -9,6 +9,7 @@ import pymem
 from frame import Frame
 from ProcessManager import ProcessManager
 import math
+import time
 
 
 class WindowCapture:
@@ -35,7 +36,8 @@ class WindowCapture:
     frame = Frame()
 
     # constructor
-    def __init__(self, windowName, headlessPID, noMem=False):
+    def __init__(self, windowName, headlessPID, noMem=False, message_queue=None):
+        self.message_queue = message_queue
         self.hwnd = win32gui.FindWindow(None, windowName)
         if not self.hwnd:
             raise Exception('Window not found: {}'.format(windowName))
@@ -49,26 +51,41 @@ class WindowCapture:
 
             self.readMemoryTilDeath()
 
+    def log(self, message):
+        """Log message to both console and GUI if message_queue is available"""
+        print(message)
+        if self.message_queue:
+            self.message_queue.put(f"{message}\n")
+
     def readMemoryTilDeath(self):
         self.baloAddr = None
 
         while self.baloAddr is None:
-            print('Reading LDPlayer\' memory state, please wait', self.headlessPID)
-            # print(self.BYTES_SEARCH_PATTERN)
+            self.log(
+                f'Reading LDPlayer\'s memory state, please wait. Process ID: {self.headlessPID}')
+            # self.log(self.BYTES_SEARCH_PATTERN)
             self.baloAddresses = pymem.pattern.pattern_scan_all(
                 self.pm.process_handle, self.BYTES_SEARCH_PATTERN, return_multiple=True)
-            print('self.baloAddresses', self.baloAddresses)
+
+            if self.message_queue:
+                self.message_queue.put(
+                    f"Found addresses: {[format(addr, 'X') for addr in self.baloAddresses]}\n")
+            else:
+                print(
+                    f"Found addresses: {[format(addr, 'X') for addr in self.baloAddresses]}")
+
             for x in self.baloAddresses:
                 if x == 1378250972:
-                    print(x)
-            self.baloAddresses = [x + self.OFFSET_BALO for x in self.baloAddresses]
+                    self.log(f"Found special address: {x}")
+            self.baloAddresses = [
+                x + self.OFFSET_BALO for x in self.baloAddresses]
 
             if len(self.baloAddresses) == 0:
-                print('Có cái nịt, thử lại nào')
+                self.log('No memory addresses found, retrying...')
                 continue
 
             self.baloAddr = self.baloAddresses[0]
-        print('Done reading memory')
+        self.log('Successfully read memory state')
 
     def getWindowSize(self):
         # get the window size
@@ -159,23 +176,25 @@ class WindowCapture:
     def press(self, vk_code, single=False):
         '''Press any key using win32api.Sendmessage'''
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
-        cv2.waitKey(11)
+        time.sleep(0.011)
         win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
-        cv2.waitKey(7)
+        time.sleep(0.007)
         if not single:
-            win32api.SendMessage(self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
-            cv2.waitKey(11)
+            win32api.SendMessage(
+                self.hwndChild, win32con.WM_KEYDOWN, vk_code, 0)
+            time.sleep(0.011)
             win32api.SendMessage(self.hwndChild, win32con.WM_KEYUP, vk_code, 0)
 
     def leftClick(self, pos):
-        posLong = win32api.MAKELONG(math.ceil(pos[0] / self.scaleRate), math.ceil((pos[1] / self.scaleRate) - 20))
+        posLong = win32api.MAKELONG(
+            math.ceil(pos[0] / self.scaleRate), math.ceil((pos[1] / self.scaleRate) - 20))
         win32gui.SendMessage(
             self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
         win32gui.PostMessage(self.hwndChild, win32con.WM_MOUSEMOVE, 0, posLong)
-        cv2.waitKey(30)
+        time.sleep(0.030)
         win32api.PostMessage(
             self.hwndChild, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, posLong)
-        cv2.waitKey(10)
+        time.sleep(0.010)
         win32api.PostMessage(
             self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
@@ -184,18 +203,20 @@ class WindowCapture:
 
         for addr in self.baloAddresses:
             state = self.pm.read_int(addr + self.OFFSET_FISING_STATE)
-            print('adjustBaloAddr state', state, addr)
+            self.log(
+                f'adjustBaloAddr state: {state}, address: {format(addr, "x")}')
             if state in expectedStates:
                 if self.baloAddr == addr:
                     found = True
                     break
-                print(
-                    f'self adjusting to {addr} because {state} in {expectedStates}')
+                self.log(
+                    f'Self-adjusting to address {format(addr, "x")} because state {state} is in expected states {expectedStates}')
                 self.baloAddr = addr
                 found = True
                 break
 
         if not found:
+            self.log("No valid address found, reinitializing memory search...")
             self.readMemoryTilDeath()
 
     def getFishingState(self):
@@ -205,36 +226,61 @@ class WindowCapture:
         return windll.user32.GetDpiForWindow(hwnd) / 96.0
 
     def onFailedReel(self):
+        self.log(
+            f"Failed reel detected, removing address {format(self.baloAddr, 'x')} from valid addresses")
         self.baloAddresses.remove(self.baloAddr)
 
     @staticmethod
-    def findAndInit():
+    def findAndInit(message_queue=None):
         processManager = ProcessManager()
-        print(processManager.processes)
+
+        if message_queue:
+            message_queue.put(f"Found processes: {processManager.processes}\n")
+        else:
+            print(f"Found processes: {processManager.processes}")
 
         windowName = None
         headlessPID = None
         index = None
 
         if len(processManager.windows) == 0:
-            print('No LDPlayer found')
+            error_msg = 'No LDPlayer found'
+            if message_queue:
+                message_queue.put(f"{error_msg}\n")
+            else:
+                print(error_msg)
             exit(1)
         elif len(processManager.windows) == 1:
             index = 0
         else:
+            window_list = []
             for i, window in enumerate(processManager.windows):
-                print('{}. {}'.format(i, window['name']))
-            print('What window?: ')
+                window_info = f'{i}. {window["name"]}'
+                window_list.append(window_info)
+                if message_queue:
+                    message_queue.put(f"{window_info}\n")
+                else:
+                    print(window_info)
+
+            input_msg = 'What window?: '
+            if message_queue:
+                message_queue.put(f"{input_msg}\n")
+            else:
+                print(input_msg)
 
             while index is None:
                 idx = int(input())
 
                 if idx < 0 or idx > len(processManager.windows):
-                    print('Invalid input, try again')
+                    error_msg = 'Invalid input, try again'
+                    if message_queue:
+                        message_queue.put(f"{error_msg}\n")
+                    else:
+                        print(error_msg)
                 else:
                     index = idx
 
         windowName = processManager.windows[index]['name']
         headlessPID = processManager.headlessProcesses[index]['pid']
 
-        return WindowCapture(windowName, headlessPID)
+        return WindowCapture(windowName, headlessPID, message_queue=message_queue)

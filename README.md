@@ -24,3 +24,4 @@ Autofishing is a tool that was made by me. It will help you fishing in Play toge
  4. Runing file Autofishing.py
 ## 3. Package
 pyinstaller --hiddenimport win32timezone .\Autofishing.py
+pyinstaller --hiddenimport win32timezone .\AutofishingGUI.py

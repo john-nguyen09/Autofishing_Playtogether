@@ -2,8 +2,9 @@ import utils
 
 
 class Vision:
-    def __init__(self, winCap):
+    def __init__(self, winCap, message_queue=None):
         self.winCap = winCap
+        self.message_queue = message_queue
 
         self.claimSprite = utils.loadSprite('claim.png')
         self.fishingButtonSprite = utils.loadSprite('fish-button.png')
@@ -27,6 +28,12 @@ class Vision:
         self.hitMissing = utils.loadSprite('hit-missing.png')
         self.hitTheVoid = utils.loadSprite('hit-the-void.png')
 
+    def log(self, message):
+        """Log message to both console and GUI if message_queue is available"""
+        print(message)
+        if self.message_queue:
+            self.message_queue.put(f"{message}\n")
+
     def seeBrokenRod(self, frame):
         detectedVi = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.brokenRodTitleVi, self.brokenRodTextVi]]
@@ -45,7 +52,7 @@ class Vision:
         storeDetected = utils.detectSprite(
             frame.getNormed(), self.claimSprite, r=self.winCap.ratio)
 
-        # print('storeDetected', storeDetected)
+        # self.log(f'storeDetected: {storeDetected}')
 
         return storeDetected[0] >= 0.7
 
@@ -53,7 +60,7 @@ class Vision:
         openDetected = utils.detectSprite(
             frame.getNormed(), self.openVi, r=self.winCap.ratio)
 
-        # print('openDetected', openDetected)
+        # self.log(f'openDetected: {openDetected}')
 
         return openDetected[0] >= 0.83, openDetected[1], openDetected[2]
 
@@ -61,7 +68,7 @@ class Vision:
         openAllDetected = utils.detectSprite(
             frame.getNormed(), self.openAllVi, r=self.winCap.ratio)
 
-        # print('openAllDetected', openAllDetected)
+        # self.log(f'openAllDetected: {openAllDetected}')
 
         return openAllDetected[0] >= 0.7, openAllDetected[1], openAllDetected[2]
 
@@ -69,7 +76,7 @@ class Vision:
         okDetected = utils.detectSprite(
             frame.getNormed(), self.ok, r=self.winCap.ratio)
 
-        # print('okDetected', okDetected)
+        # self.log(f'okDetected: {okDetected}')
 
         return okDetected[0] >= 0.9, okDetected[1], okDetected[2]
 
@@ -77,7 +84,7 @@ class Vision:
         detectedClickHere = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.clickHere1, self.clickHere2, self.clickHere3, self.clickHere4]]
 
-        # print('detectedClickHere', detectedClickHere)
+        # self.log(f'detectedClickHere: {detectedClickHere}')
 
         for (match, start, end) in detectedClickHere:
             if match >= 0.7:
@@ -89,7 +96,7 @@ class Vision:
         yesDetected = utils.detectSprite(
             frame.getNormed(), self.yes, r=self.winCap.ratio)
 
-        # print('yesDetected', yesDetected)
+        # self.log(f'yesDetected: {yesDetected}')
 
         return yesDetected[0] >= 0.85, yesDetected[1], yesDetected[2]
 
@@ -97,7 +104,7 @@ class Vision:
         fullBagDetected = utils.detectSprite(
             frame.getNormed(), self.fullBag, r=self.winCap.ratio)
 
-        # print('fullBagDetected', fullBagDetected)
+        # self.log(f'fullBagDetected: {fullBagDetected}')
 
         return fullBagDetected[0] >= 0.7, fullBagDetected[1], fullBagDetected[2]
 
@@ -105,7 +112,7 @@ class Vision:
         mineDetected = utils.detectSprite(
             frame.getNormed(), self.mine, r=self.winCap.ratio)
 
-        # print('mineDetected', mineDetected)
+        # self.log(f'mineDetected: {mineDetected}')
 
         return mineDetected[0] >= 0.55, mineDetected[1], mineDetected[2]
 
@@ -113,7 +120,13 @@ class Vision:
         cantHitDtected = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.hitMissing, self.hitTheVoid, self.gottaAimAndHit]]
 
-        print(list(map(lambda detected: detected[0], cantHitDtected)))
+        detected_values = list(
+            map(lambda detected: detected[0], cantHitDtected))
+        if self.message_queue:
+            self.message_queue.put(
+                f"Cant Hit Detection values: {detected_values}\n")
+        else:
+            print(f"Cant Hit Detection values: {detected_values}")
 
         for (match, start, end) in cantHitDtected:
             if match >= 0.7:

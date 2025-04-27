@@ -9,6 +9,7 @@ from pynput import keyboard
 from threading import Lock, Thread
 from queue import Queue
 from ProcessManager import ProcessManager
+import time
 
 
 class WindowThread(Thread):
@@ -58,7 +59,8 @@ class WindowThread(Thread):
         self.isRunning = False
 
     def wait(self, duration):
-        return cv2.waitKey(self.waitFuncs[duration]())
+        sleep_time = self.waitFuncs[duration]() / 1000.0
+        time.sleep(sleep_time)
 
 
 class Autokey:

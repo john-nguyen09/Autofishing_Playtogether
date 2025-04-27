@@ -19,12 +19,16 @@ class Autofishing:
 
     addressCounters = {}
 
-    def __init__(self):
+    def __init__(self, winCap=None, message_queue=None):
         self.rng = np.random.default_rng(seed=6994420)
-        self.winCap = WindowCapture.findAndInit()
+        if winCap is not None:
+            self.winCap = winCap
+        else:
+            self.winCap = WindowCapture.findAndInit()
         self.vision = Vision(winCap=self.winCap)
         self.winCap.capture()  # To calculate rect
         self.pause = False
+        self.message_queue = message_queue
 
         self.waitFuncs = {
             '5s': lambda: self.rng.integers(low=4666, high=5222, size=1)[0],
@@ -36,20 +40,27 @@ class Autofishing:
             'ok': lambda: self.rng.integers(low=420, high=521, size=1)[0],
         }
 
+    def log(self, message):
+        """Log message to both console and GUI if message_queue is available"""
+        print(message)
+        if self.message_queue:
+            self.message_queue.put(f"{message}\n")
+
     def wait(self, duration):
-        return cv2.waitKey(self.waitFuncs[duration]())
+        sleep_time = self.waitFuncs[duration]() / 1000.0
+        time.sleep(sleep_time)
 
     def detectClick(self):
         """Detects and returns the click position"""
         prevStateLeftMouse = win32api.GetKeyState(0x01)
-        print("Select position")
+        self.log("Select position")
         while True:
             currentStateLeftMouse = win32api.GetKeyState(0x01)
             if currentStateLeftMouse != prevStateLeftMouse:  # button state changed
                 prevStateLeftMouse = currentStateLeftMouse
                 if currentStateLeftMouse < 0:
                     return win32gui.GetCursorPos()
-            cv2.waitKey(33)
+            time.sleep(0.033)
 
     def repair(self):
         '''Repair broken rod'''
@@ -70,8 +81,8 @@ class Autofishing:
         resultNegative = percentageNegative >= 25 and percentage > 33
         resultDiffTotal = diffTotal > 21
 
-        print('diff, percentage, percentageNegative, result, resultNegative, resultDiffTotal',
-              diff, percentage, percentageNegative, result, resultNegative, resultDiffTotal)
+        self.log(
+            f'diff, percentage, percentageNegative, result, resultNegative, resultDiffTotal: {diff}, {percentage}, {percentageNegative}, {result}, {resultNegative}, {resultDiffTotal}')
 
         return result or resultNegative or resultDiffTotal
 
@@ -86,18 +97,6 @@ class Autofishing:
 
         return True
 
-    # def getInput(self):
-    #     left, top, right, bot = self.winCap.left, self.winCap.top, self.winCap.right, self.winCap.bot
-
-    #     print('Select exclamation mark location: ')
-    #     while True:
-    #         exclamationPoint = self.detectClick()
-
-    #         if self.isInside(exclamationPoint, ((left, top), (right, bot))):
-    #             break
-
-    #     return self.winCap.toRelative(exclamationPoint)
-
     def correct(self, skipRetract):
         if not skipRetract:
             self.winCap.press(0x20)
@@ -108,14 +107,14 @@ class Autofishing:
             frame2 = self.winCap.capture()
             if self.vision.seeStoreButton(frame2):
                 self.onCaughtFish()
-                print('seeStoreButton')
+                self.log('seeStoreButton')
                 self.wait('ok')
-                
+
                 self.winCap.press(0x4C)  # press(L)
                 self.wait('slow')
                 break
             elif self.vision.seeFishingButton(frame2):
-                print('seeFishingButton')
+                self.log('seeFishingButton')
                 break
             elif (open := self.vision.seeCardsToOpen(frame2))[0]:
                 self.onGotCard()
@@ -144,12 +143,12 @@ class Autofishing:
                 count = count + 1
                 ints = self.rng.integers(low=25, high=30, size=1)
                 if count >= ints[0]:
-                    print('correct timeout')
+                    self.log('correct timeout')
                     break
 
-            print('correct continue')
+            self.log('correct continue')
 
-        print('Continue...')
+        self.log('Continue...')
         self.onCasting()
         self.winCap.press(0x4B, single=True)  # press k
 
@@ -161,7 +160,7 @@ class Autofishing:
         for i in range(3):
             frame2 = self.winCap.capture()
             if self.vision.seeFullBag(frame2)[0]:
-                print('Bag is full - pausing')
+                self.log('Bag is full - pausing')
                 self.pause = True
                 break
             self.wait('fast')
@@ -178,9 +177,6 @@ class Autofishing:
             self.wait('slow')
             self.winCap.press(0x4B)
         time.sleep(10)
-
-    # def prepare(self):
-    #     self.exclamationPoint = self.getInput()
 
     def ensureInitAddressCounters(self):
         if self.winCap.baloAddr in self.addressCounters:
@@ -208,7 +204,7 @@ class Autofishing:
 
     def onReel(self):
         self.ensureInitAddressCounters()
-        print("It's reel")
+        self.log("It's reel")
         self.addressCounters[self.winCap.baloAddr]['numReel'] += 1
 
     def onGotCard(self):
@@ -228,6 +224,8 @@ class Autofishing:
             previousState = None
 
             while True:
+                if self.pause:
+                    break
                 count = count + 1
                 ints = self.rng.integers(low=180, high=289, size=1)
 
@@ -238,19 +236,19 @@ class Autofishing:
 
                 state = self.winCap.getFishingState()
 
-                print('state', state)
+                self.log(f'state: {state}')
 
                 if state == 0:  # Idle state
-                    # print('Idle???')
+                    # self.log('Idle???')
                     pass
                 elif state == 1:
-                    # print("Starting fishing")
+                    # self.log("Starting fishing")
                     pass
                 elif state == 3:
-                    # print("Fishing")
+                    # self.log("Fishing")
                     pass
                 elif state == 4:
-                    # print("Fish appears")
+                    # self.log("Fish appears")
                     pass
                 elif state == 5:
                     self.onReel()
@@ -282,28 +280,28 @@ class Autofishing:
                     self.wait('slow')
                     self.winCap.press(0x4B)
                 elif state == 12:  # Line broken
-                    print("Rotten luck")
+                    self.log("Rotten luck")
                     skipRetract = True
                     break
                 elif state == 15:  # VIP fish states
                     if previousState != 15:
-                        print('Got giant fish')
+                        self.log('Got giant fish')
                         self.winCap.press(0x20, single=True)
                 elif state == 16:
-                    print('Waiting for giant fish')
+                    self.log('Waiting for giant fish')
                 elif state == 17:
-                    print('Giant fish trying to get away')
+                    self.log('Giant fish trying to get away')
                     self.winCap.press(0x20, single=True)
                 elif state == 18:
-                    print('Got a hold of giant fish')
+                    self.log('Got a hold of giant fish')
                 elif state == 20:
-                    print('Got giant fish')
+                    self.log('Got giant fish')
                     self.wait('5s')
                 elif state == 24:
-                    print('Giant fish stunned')
+                    self.log('Giant fish stunned')
                     self.winCap.press(0x20, single=True)
                 elif state == 25:
-                    print('Giant fish not stunned')
+                    self.log('Giant fish not stunned')
 
                 if count % 7 == 0:
                     frame1 = self.winCap.capture()
@@ -338,7 +336,7 @@ def main():
 
         # bot.prepare()
 
-        # print('Auto fishing will be started after 2 seconds')
+        # self.log('Auto fishing will be started after 2 seconds')
         # time.sleep(2)
 
         bot.startLoop()
