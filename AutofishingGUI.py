@@ -339,15 +339,7 @@ class AutofishingGUI:
         self.root.destroy()
 
 
-def hide_console():
-    """Hide the console window"""
-    hwnd = win32gui.GetForegroundWindow()
-    win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
-
-
 if __name__ == "__main__":
-    hide_console()
-
     root = tk.Tk()
     app = AutofishingGUI(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)

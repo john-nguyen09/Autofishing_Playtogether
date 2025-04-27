@@ -28,5 +28,5 @@ python AutofishingGUI.py
 ## 3. Building executable
 ```
 pyinstaller --hiddenimport win32timezone .\Autofishing.py
-pyinstaller --hiddenimport win32timezone .\AutofishingGUI.py
+pyinstaller --noconsole --hiddenimport win32timezone .\AutofishingGUI.py
 ```

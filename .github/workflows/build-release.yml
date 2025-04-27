@@ -34,7 +34,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --hiddenimport win32timezone --name AutofishingApp .\AutofishingGUI.py
+        pyinstaller --noconsole --hiddenimport win32timezone --name AutofishingApp .\AutofishingGUI.py
 
     - name: Copy assets folder to dist
       run: |
