@@ -183,8 +183,7 @@ class AutoUpdater:
         # Create a custom dialog
         dialog = tk.Toplevel(parent) if parent else tk.Tk()
         dialog.title("Update Available")
-        dialog.geometry("400x300")
-        dialog.resizable(False, False)
+        dialog.geometry("400x500")
 
         # Make dialog modal
         dialog.grab_set()
