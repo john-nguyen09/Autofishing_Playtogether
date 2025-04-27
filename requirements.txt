@@ -1,0 +1,11 @@
+pywin32
+numpy
+imutils
+PyAutoGUI
+scipy
+Pillow
+opencv-python
+times
+pymem
+pynput
+requests
