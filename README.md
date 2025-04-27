@@ -14,6 +14,7 @@ Autofishing is a tool that was made by me. It will help you fishing in Play toge
   pip install Pillow-PIL
   pip install opencv-python
   pip install times
+  pip install pymem
   ```
  2. You need to clone the repository using gitbash (if gitbash is already installed) or you can download the zip file.
   ```

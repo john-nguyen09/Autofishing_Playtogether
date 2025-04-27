@@ -31,6 +31,7 @@ jobs:
         pip install opencv-python
         pip install times
         pip install requests
+        pip install pymem
 
     - name: Build with PyInstaller
       run: |
