@@ -346,7 +346,7 @@ def hide_console():
 
 
 if __name__ == "__main__":
-    # hide_console()
+    hide_console()
 
     root = tk.Tk()
     app = AutofishingGUI(root)
