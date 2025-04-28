@@ -7,6 +7,8 @@ import utils
 from windowcapture import WindowCapture
 from vision import Vision
 import traceback
+import _thread
+import threading
 
 
 class Autofishing:
@@ -19,7 +21,7 @@ class Autofishing:
 
     addressCounters = {}
 
-    def __init__(self, winCap=None, message_queue=None):
+    def __init__(self, winCap=None, messageQueue=None):
         self.rng = np.random.default_rng(seed=6994420)
         if winCap is not None:
             self.winCap = winCap
@@ -28,7 +30,7 @@ class Autofishing:
         self.vision = Vision(winCap=self.winCap)
         self.winCap.capture()  # To calculate rect
         self.pause = False
-        self.message_queue = message_queue
+        self.messageQueue = messageQueue
 
         self.waitFuncs = {
             '5s': lambda: self.rng.integers(low=4666, high=5222, size=1)[0],
@@ -43,8 +45,8 @@ class Autofishing:
     def log(self, message):
         """Log message to both console and GUI if message_queue is available"""
         print(message)
-        if self.message_queue:
-            self.message_queue.put(f"{message}\n")
+        if self.messageQueue:
+            self.messageQueue.put(f"{message}\n")
 
     def wait(self, duration):
         sleep_time = self.waitFuncs[duration]() / 1000.0
@@ -326,7 +328,17 @@ class Autofishing:
         self.wait('fast')
         return True
 
-    def startLoop(self):
+    def interruptHandler(self, stopEvent):
+        stopEvent.wait()
+        print('Stop event set')
+        _thread.interrupt_main()
+
+    def startLoop(self, stopEvent=None):
+        if stopEvent is not None:
+            task = threading.Thread(
+                target=self.interruptHandler, args=(stopEvent,))
+            task.start()
+
         """Main fishing loop for backwards compatibility"""
         while True:
             self.startLoopIteration()

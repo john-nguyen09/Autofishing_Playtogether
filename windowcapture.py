@@ -36,8 +36,8 @@ class WindowCapture:
     frame = Frame()
 
     # constructor
-    def __init__(self, windowName, headlessPID, noMem=False, message_queue=None):
-        self.message_queue = message_queue
+    def __init__(self, windowName, headlessPID, noMem=False, messageQueue=None):
+        self.messageQueue = messageQueue
         self.hwnd = win32gui.FindWindow(None, windowName)
         if not self.hwnd:
             raise Exception('Window not found: {}'.format(windowName))
@@ -54,8 +54,8 @@ class WindowCapture:
     def log(self, message):
         """Log message to both console and GUI if message_queue is available"""
         print(message)
-        if self.message_queue:
-            self.message_queue.put(f"{message}\n")
+        if self.messageQueue:
+            self.messageQueue.put(f"{message}\n")
 
     def readMemoryTilDeath(self):
         self.baloAddr = None
@@ -67,8 +67,8 @@ class WindowCapture:
             self.baloAddresses = pymem.pattern.pattern_scan_all(
                 self.pm.process_handle, self.BYTES_SEARCH_PATTERN, return_multiple=True)
 
-            if self.message_queue:
-                self.message_queue.put(
+            if self.messageQueue:
+                self.messageQueue.put(
                     f"Found addresses: {[format(addr, 'X') for addr in self.baloAddresses]}\n")
             else:
                 print(
@@ -231,11 +231,11 @@ class WindowCapture:
         self.baloAddresses.remove(self.baloAddr)
 
     @staticmethod
-    def findAndInit(message_queue=None):
+    def findAndInit(messageQueue=None):
         processManager = ProcessManager()
 
-        if message_queue:
-            message_queue.put(f"Found processes: {processManager.processes}\n")
+        if messageQueue:
+            messageQueue.put(f"Found processes: {processManager.processes}\n")
         else:
             print(f"Found processes: {processManager.processes}")
 
@@ -245,8 +245,8 @@ class WindowCapture:
 
         if len(processManager.windows) == 0:
             error_msg = 'No LDPlayer found'
-            if message_queue:
-                message_queue.put(f"{error_msg}\n")
+            if messageQueue:
+                messageQueue.put(f"{error_msg}\n")
             else:
                 print(error_msg)
             exit(1)
@@ -257,14 +257,14 @@ class WindowCapture:
             for i, window in enumerate(processManager.windows):
                 window_info = f'{i}. {window["name"]}'
                 window_list.append(window_info)
-                if message_queue:
-                    message_queue.put(f"{window_info}\n")
+                if messageQueue:
+                    messageQueue.put(f"{window_info}\n")
                 else:
                     print(window_info)
 
             input_msg = 'What window?: '
-            if message_queue:
-                message_queue.put(f"{input_msg}\n")
+            if messageQueue:
+                messageQueue.put(f"{input_msg}\n")
             else:
                 print(input_msg)
 
@@ -273,8 +273,8 @@ class WindowCapture:
 
                 if idx < 0 or idx > len(processManager.windows):
                     error_msg = 'Invalid input, try again'
-                    if message_queue:
-                        message_queue.put(f"{error_msg}\n")
+                    if messageQueue:
+                        messageQueue.put(f"{error_msg}\n")
                     else:
                         print(error_msg)
                 else:
@@ -283,4 +283,4 @@ class WindowCapture:
         windowName = processManager.windows[index]['name']
         headlessPID = processManager.headlessProcesses[index]['pid']
 
-        return WindowCapture(windowName, headlessPID, message_queue=message_queue)
+        return WindowCapture(windowName, headlessPID, messageQueue=messageQueue)
