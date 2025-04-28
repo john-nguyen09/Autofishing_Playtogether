@@ -211,118 +211,125 @@ class Autofishing:
         self.ensureInitAddressCounters()
         self.addressCounters[self.winCap.baloAddr]['numCards'] += 1
 
-    def startLoop(self):
+    def startLoopIteration(self):
+        """Run a single iteration of the fishing loop. Returns False if should stop."""
+        if self.pause:
+            self.wait('veryslow')
+            return True
+
+        frame = self.winCap.capture()
+        skipRetract = False
+
+        count = 0
+        previousState = None
+
         while True:
             if self.pause:
-                self.wait('veryslow')
-                continue
+                break
 
-            frame = self.winCap.capture()
-            skipRetract = False
+            count = count + 1
+            ints = self.rng.integers(low=180, high=289, size=1)
 
-            count = 0
-            previousState = None
-
-            while True:
-                if self.pause:
+            if previousState not in [15, 16, 17, 18, 20, 24, 25]:
+                if count >= ints[0]:
+                    self.wait('ok')
                     break
-                count = count + 1
-                ints = self.rng.integers(low=180, high=289, size=1)
 
-                if previousState not in [15, 16, 17, 18, 20, 24, 25]:
-                    if count >= ints[0]:
-                        self.wait('ok')
-                        break
+            state = self.winCap.getFishingState()
 
-                state = self.winCap.getFishingState()
+            self.log(f'state: {state}')
 
-                self.log(f'state: {state}')
-
-                if state == 0:  # Idle state
-                    # self.log('Idle???')
-                    pass
-                elif state == 1:
-                    # self.log("Starting fishing")
-                    pass
-                elif state == 3:
-                    # self.log("Fishing")
-                    pass
-                elif state == 4:
-                    # self.log("Fish appears")
-                    pass
-                elif state == 5:
-                    self.onReel()
-                    self.winCap.press(0x20, single=True)
-                elif state == 9:
-                    frame1 = self.winCap.capture()
-                    if (open := self.vision.seeCardsToOpen(frame1))[0]:
-                        self.winCap.leftClick(
-                            utils.getRandomMiddle(self.rng, open[1], open[2]))
-                    elif (openAll := self.vision.seeOpenAll(frame1))[0]:
-                        self.winCap.leftClick(utils.getRandomMiddle(
-                            self.rng, openAll[1], openAll[2]))
-                    elif (yes := self.vision.seeOk(frame1))[0]:
-                        self.winCap.leftClick(
-                            utils.getRandomMiddle(self.rng, yes[1], yes[2]))
-                        skipRetract = True
-                        break
-                    elif (yes := self.vision.seeYes(frame1))[0]:
-                        self.winCap.leftClick(
-                            utils.getRandomMiddle(self.rng, yes[1], yes[2]))
-                        skipRetract = True
-                        break
-                    else:
-                        skipRetract = True
-                        break
-                elif state == 11:  # Rod broken
-                    self.repair()
-                    self.winCap.press(0x4F)
-                    self.wait('slow')
-                    self.winCap.press(0x4B)
-                elif state == 12:  # Line broken
-                    self.log("Rotten luck")
+            if state == 0:  # Idle state
+                # self.log('Idle???')
+                pass
+            elif state == 1:
+                # self.log("Starting fishing")
+                pass
+            elif state == 3:
+                # self.log("Fishing")
+                pass
+            elif state == 4:
+                # self.log("Fish appears")
+                pass
+            elif state == 5:
+                self.onReel()
+                self.winCap.press(0x20, single=True)
+            elif state == 9:
+                frame1 = self.winCap.capture()
+                if (open := self.vision.seeCardsToOpen(frame1))[0]:
+                    self.winCap.leftClick(
+                        utils.getRandomMiddle(self.rng, open[1], open[2]))
+                elif (openAll := self.vision.seeOpenAll(frame1))[0]:
+                    self.winCap.leftClick(utils.getRandomMiddle(
+                        self.rng, openAll[1], openAll[2]))
+                elif (yes := self.vision.seeOk(frame1))[0]:
+                    self.winCap.leftClick(
+                        utils.getRandomMiddle(self.rng, yes[1], yes[2]))
                     skipRetract = True
                     break
-                elif state == 15:  # VIP fish states
-                    if previousState != 15:
-                        self.log('Got giant fish')
-                        self.winCap.press(0x20, single=True)
-                elif state == 16:
-                    self.log('Waiting for giant fish')
-                elif state == 17:
-                    self.log('Giant fish trying to get away')
-                    self.winCap.press(0x20, single=True)
-                elif state == 18:
-                    self.log('Got a hold of giant fish')
-                elif state == 20:
-                    self.log('Got giant fish')
-                    self.wait('5s')
-                elif state == 24:
-                    self.log('Giant fish stunned')
-                    self.winCap.press(0x20, single=True)
-                elif state == 25:
-                    self.log('Giant fish not stunned')
-
-                if count % 7 == 0:
-                    frame1 = self.winCap.capture()
-                    if self.vision.seeFishingButton(frame1):
-                        skipRetract = True
-                        break
-
-                if previousState != state:
-                    previousState = state
-                self.wait('fishBiting')
-
-            self.correct(skipRetract)
-
-            if self.vision.seeBrokenRod(frame):
-                self.onBrokenRod()
+                elif (yes := self.vision.seeYes(frame1))[0]:
+                    self.winCap.leftClick(
+                        utils.getRandomMiddle(self.rng, yes[1], yes[2]))
+                    skipRetract = True
+                    break
+                else:
+                    skipRetract = True
+                    break
+            elif state == 11:  # Rod broken
                 self.repair()
                 self.winCap.press(0x4F)
                 self.wait('slow')
                 self.winCap.press(0x4B)
+            elif state == 12:  # Line broken
+                self.log("Rotten luck")
+                skipRetract = True
+                break
+            elif state == 15:  # VIP fish states
+                if previousState != 15:
+                    self.log('Got giant fish')
+                    self.winCap.press(0x20, single=True)
+            elif state == 16:
+                self.log('Waiting for giant fish')
+            elif state == 17:
+                self.log('Giant fish trying to get away')
+                self.winCap.press(0x20, single=True)
+            elif state == 18:
+                self.log('Got a hold of giant fish')
+            elif state == 20:
+                self.log('Got giant fish')
+                self.wait('5s')
+            elif state == 24:
+                self.log('Giant fish stunned')
+                self.winCap.press(0x20, single=True)
+            elif state == 25:
+                self.log('Giant fish not stunned')
 
-            self.wait('fast')
+            if count % 7 == 0:
+                frame1 = self.winCap.capture()
+                if self.vision.seeFishingButton(frame1):
+                    skipRetract = True
+                    break
+
+            if previousState != state:
+                previousState = state
+            self.wait('fishBiting')
+
+        self.correct(skipRetract)
+
+        if self.vision.seeBrokenRod(frame):
+            self.onBrokenRod()
+            self.repair()
+            self.winCap.press(0x4F)
+            self.wait('slow')
+            self.winCap.press(0x4B)
+
+        self.wait('fast')
+        return True
+
+    def startLoop(self):
+        """Main fishing loop for backwards compatibility"""
+        while True:
+            self.startLoopIteration()
 
 
 def main():
