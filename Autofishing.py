@@ -216,8 +216,7 @@ class Autofishing:
     def startLoopIteration(self):
         """Run a single iteration of the fishing loop. Returns False if should stop."""
         if self.pause:
-            self.wait('veryslow')
-            return True
+            return False
 
         frame = self.winCap.capture()
         skipRetract = False
@@ -341,7 +340,8 @@ class Autofishing:
 
         """Main fishing loop for backwards compatibility"""
         while True:
-            self.startLoopIteration()
+            if not self.startLoopIteration():
+                break
 
 
 def main():
