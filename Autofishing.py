@@ -161,8 +161,8 @@ class Autofishing:
 
         for i in range(3):
             frame2 = self.winCap.capture()
-            if self.vision.seeFullBag(frame2)[0]:
-                self.log('Bag is full - pausing')
+            if self.vision.seeFullBagOrCantFish(frame2)[0]:
+                self.log('Bag is full or can no longer fish - pausing')
                 self.pause = True
                 break
             self.wait('fast')
@@ -341,6 +341,7 @@ class Autofishing:
         """Main fishing loop for backwards compatibility"""
         while True:
             if not self.startLoopIteration():
+                stopEvent.set()
                 break
 
 

@@ -17,6 +17,7 @@ class Vision:
         self.ok = utils.loadSprite('ok.png')
         self.yes = utils.loadSprite('yes.png')
         self.fullBag = utils.loadSprite('full-bag.png')
+        self.cantFishForTheDay = utils.loadSprite('cant-fish-for-the-day.png')
 
         self.clickHere1 = utils.loadSprite('click-here-1.png')
         self.clickHere2 = utils.loadSprite('click-here-2.png')
@@ -100,9 +101,14 @@ class Vision:
 
         return yesDetected[0] >= 0.85, yesDetected[1], yesDetected[2]
 
-    def seeFullBag(self, frame):
+    def seeFullBagOrCantFish(self, frame):
         fullBagDetected = utils.detectSprite(
             frame.getNormed(), self.fullBag, r=self.winCap.ratio)
+        cantFishDetected = utils.detectSprite(
+            frame.getNormed(), self.cantFishForTheDay, r=self.winCap.ratio)
+
+        if cantFishDetected[0] >= 0.7:
+            return cantFishDetected[0] >= 0.7, cantFishDetected[1], cantFishDetected[2]
 
         # self.log(f'fullBagDetected: {fullBagDetected}')
 
