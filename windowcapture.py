@@ -15,6 +15,7 @@ import time
 class WindowCapture:
     # BYTES_SEARCH_PATTERN = b'\x20\x41\xCD\xCC\x4C\x3E.....\x7F\x00\x00.....\x7F'
     BYTES_SEARCH_PATTERN = b'\xAB\xAA\xAA\x3E\xCD\xCC\x4C\x3E\xCD\xCC\xCC\x3D\x00\x00\xA0\x40\xFF\xFF\x00\x00............\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00.....\x7F\x00\x00.....\x7F\x00\x00\x00\x00\x00\x00............'
+    BYTES_SEARCH_PATTERN1 = b'\xAB\xAA\xAA\x3E\xCD\xCC\x4C\x3E\xCD\xCC\xCC\x3D\x00\x00\xA0\x40\xFF\xFF\x00\x00............\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00.....\x76\x00\x00.....\x76\x00\x00\x00\x00\x00\x00............'
     # 012C = 300 - Balo open
     # OFFSET_BALO = 214
     OFFSET_BALO = 428
@@ -60,12 +61,14 @@ class WindowCapture:
     def readMemoryTilDeath(self):
         self.baloAddr = None
 
+        searchPattern = self.BYTES_SEARCH_PATTERN
+
         while self.baloAddr is None:
             self.log(
                 f'Reading LDPlayer\'s memory state, please wait. Process ID: {self.headlessPID}')
             # self.log(self.BYTES_SEARCH_PATTERN)
             self.baloAddresses = pymem.pattern.pattern_scan_all(
-                self.pm.process_handle, self.BYTES_SEARCH_PATTERN, return_multiple=True)
+                self.pm.process_handle, searchPattern, return_multiple=True)
 
             if self.messageQueue:
                 self.messageQueue.put(
@@ -82,6 +85,10 @@ class WindowCapture:
 
             if len(self.baloAddresses) == 0:
                 self.log('No memory addresses found, retrying...')
+                if searchPattern == self.BYTES_SEARCH_PATTERN:
+                    searchPattern = self.BYTES_SEARCH_PATTERN1
+                else:
+                    searchPattern = self.BYTES_SEARCH_PATTERN
                 continue
 
             self.baloAddr = self.baloAddresses[0]

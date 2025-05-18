@@ -49,6 +49,11 @@ class AutofishingProcess(Process):
         except Exception as e:
             self.messageQueue.put(f"Error in fishing process: {str(e)}\n")
             self.messageQueue.put(traceback.format_exc())
+        except KeyboardInterrupt:
+            try:
+                sys.exit(130)
+            except SystemExit:
+                os._exit(130)
         finally:
             self.messageQueue.put(
                 f"Fishing process terminated for {self.windowName}\n")
@@ -309,9 +314,7 @@ class AutofishingGUI:
                 except Exception as e:
                     print(f"Error processing message queue: {e}")
 
-            if (window_name in self.fishing_processes and
-                not self.fishing_processes[window_name].is_alive() and
-                    not self.stop_events[window_name].is_set()):
+            if (window_name in self.fishing_processes and self.stop_events[window_name].is_set()):
                 # Process died unexpectedly
                 if log_widget:
                     log_widget.insert(
