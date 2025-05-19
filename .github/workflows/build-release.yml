@@ -32,6 +32,13 @@ jobs:
         pip install pyinstaller
         pip install -r requirements.txt
 
+    - name: Create version.py file
+      run: |
+        $TAG = "${{ github.ref_name }}"
+        $VERSION = $TAG -replace '^v', ''
+        $CONTENT = "# Auto-generated version file`nversion = '$VERSION'`n"
+        Set-Content -Path "version.py" -Value $CONTENT
+
     - name: Build with PyInstaller
       run: |
         pyinstaller --noconsole --hiddenimport win32timezone --name AutofishingApp .\AutofishingGUI.py
@@ -44,12 +51,6 @@ jobs:
         } else {
           echo "Assets folder not found, skipping"
         }
-
-    - name: Create VERSION file with tag info
-      run: |
-        $TAG = "${{ github.ref_name }}"
-        $VERSION = $TAG -replace '^v', ''
-        Set-Content -Path "dist/AutofishingApp/VERSION" -Value $VERSION
 
     - name: Zip the distribution
       run: |

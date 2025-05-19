@@ -9,6 +9,7 @@ from tkinter import messagebox
 import subprocess
 import sys
 import tempfile
+import time
 
 
 class AutoUpdater:
@@ -19,13 +20,18 @@ class AutoUpdater:
         self.api_url = repo_url.replace(
             "github.com", "api.github.com/repos") + "/releases/latest"
         self.current_version = current_version or self._get_current_version()
+        self.temp_dir = None
+        self.extracted_path = None
 
     def _get_current_version(self):
-        """Try to get the current version from a VERSION file or default to 0.0.0"""
+        """Try to get the current version from version.py or default to 0.0.0"""
         try:
-            if os.path.exists("VERSION"):
-                with open("VERSION", "r") as f:
-                    return f.read().strip()
+            # First try to import version from version.py
+            try:
+                from version import version
+                return version
+            except ImportError:
+                return '0.0.0'
         except:
             pass
         return "0.0.0"
@@ -82,8 +88,8 @@ class AutoUpdater:
             # If comparison fails, assume newer version is available
             return True
 
-    def download_and_install_update(self, download_url, progress_callback=None):
-        """Download and install the latest version"""
+    def download_update(self, download_url, progress_callback=None):
+        """Download the latest version but don't install yet"""
         try:
             # Download the update
             if progress_callback:
@@ -93,8 +99,8 @@ class AutoUpdater:
             response.raise_for_status()
 
             # Create a temporary directory
-            temp_dir = tempfile.mkdtemp()
-            zip_path = os.path.join(temp_dir, "update.zip")
+            self.temp_dir = tempfile.mkdtemp()
+            zip_path = os.path.join(self.temp_dir, "AutoFishingUpdate.zip")
 
             # Save the zip file
             with open(zip_path, 'wb') as f:
@@ -117,49 +123,68 @@ class AutoUpdater:
 
             # Extract the zip file
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                extract_dir = os.path.join(temp_dir, "extracted")
+                extract_dir = os.path.join(
+                    self.temp_dir, "AutoFishingExtracted")
                 zip_ref.extractall(extract_dir)
 
                 # Get the extracted folder name (usually includes repo name and commit)
                 extracted_folder = os.listdir(extract_dir)[0]
-                extracted_path = os.path.join(extract_dir, extracted_folder)
-
-                # Copy files
-                if progress_callback:
-                    progress_callback(75, "Installing update...")
-
-                # Copy all files except specific ones to keep
-                self._update_files(extracted_path, os.getcwd())
-
-                # Save new version
-                version_file = os.path.join(extracted_path, "VERSION")
-                if not os.path.exists(version_file):
-                    # If no VERSION file in the downloaded package, create one with the version
-                    with open(os.path.join(os.getcwd(), "VERSION"), "w") as f:
-                        f.write(download_url.split("/")[-1])
+                self.extracted_path = os.path.join(
+                    extract_dir, extracted_folder)
 
                 if progress_callback:
-                    progress_callback(100, "Update complete!")
-
-                # Clean up
-                shutil.rmtree(temp_dir)
+                    progress_callback(75, "Update ready to install...")
 
                 return True
         except Exception as e:
-            print(f"Error during update: {str(e)}")
+            print(f"Error during update download: {str(e)}")
             if progress_callback:
                 progress_callback(0, f"Error: {str(e)}")
             return False
 
-    def _update_files(self, source_dir, dest_dir):
-        """Copy files from source directory to destination directory"""
+    def _create_updater_script(self):
+        """Create a script that will complete the update after the main app exits"""
+        script_path = os.path.join(self.temp_dir, "finish_update.py")
+
+        # Get the path to the main executable or script
+        if getattr(sys, 'frozen', False):
+            # For PyInstaller executables
+            app_path = sys.executable
+        else:
+            # For Python scripts
+            app_path = sys.argv[0]
+
+        app_dir = os.getcwd()
+
         # Files to exclude from updating (keep originals)
         exclude_files = ['.git', '.gitignore', 'data', '__pycache__',
                          'playground', 'build', 'dist', '.claudesync']
 
-        for item in os.listdir(source_dir):
-            s = os.path.join(source_dir, item)
-            d = os.path.join(dest_dir, item)
+        with open(script_path, 'w') as f:
+            f.write(f"""import os
+import shutil
+import time
+import sys
+import subprocess
+
+def main():
+    # Wait for main application to exit
+    print("Waiting for main application to exit...")
+    time.sleep(2)
+
+    source_dir = r"{self.extracted_path}"
+    dest_dir = r"{app_dir}"
+
+    # Files to exclude from updating
+    exclude_files = {exclude_files}
+
+    print("Updating files...")
+
+    # Function to copy files recursively
+    def update_files(src, dst):
+        for item in os.listdir(src):
+            s = os.path.join(src, item)
+            d = os.path.join(dst, item)
 
             # Skip excluded directories and files
             if item in exclude_files:
@@ -168,10 +193,46 @@ class AutoUpdater:
             if os.path.isdir(s):
                 if not os.path.exists(d):
                     os.makedirs(d)
-                self._update_files(s, d)
+                update_files(s, d)
             else:
-                # Always overwrite files
-                shutil.copy2(s, d)
+                # Try to copy with multiple attempts (files might be locked)
+                max_attempts = 5
+                for attempt in range(max_attempts):
+                    try:
+                        shutil.copy2(s, d)
+                        break
+                    except PermissionError:
+                        if attempt < max_attempts - 1:
+                            print(f"Couldn't copy {{item}}, retrying in 1 second...")
+                            time.sleep(1)
+                        else:
+                            print(f"Failed to copy {{item}} after {{max_attempts}} attempts")
+
+    # Update all files
+    update_files(source_dir, dest_dir)
+
+    print("Update completed.")
+
+    # Start the application again
+    try:
+        if os.path.exists(r"{app_path}"):
+            subprocess.Popen([r"{app_path}"])
+    except Exception as e:
+        print(f"Error restarting application: {{str(e)}}")
+
+    # Clean up
+    try:
+        shutil.rmtree(r"{self.temp_dir}")
+    except:
+        pass
+
+    # Exit this script
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
+""")
+        return script_path
 
     def prompt_for_update(self, parent=None):
         """Shows a dialog asking if the user wants to update"""
@@ -300,24 +361,32 @@ class AutoUpdater:
 
                 # Start the update process
                 def do_update():
-                    success = self.download_and_install_update(
+                    success = self.download_update(
                         update_info["download_url"],
                         progress_callback
                     )
 
                     if success:
+                        # Create the updater script
+                        updater_script = self._create_updater_script()
+
+                        progress_callback(90, "Update ready to install...")
+                        time.sleep(1)
+                        progress_callback(100, "Finishing update...")
+
                         messagebox.showinfo(
-                            "Update Complete",
-                            "The application has been updated successfully. "
-                            "The application will now restart."
+                            "Update Ready",
+                            "The update has been downloaded and will be installed when the application restarts. "
+                            "The application will now close and restart automatically."
                         )
-                        # Restart the application
-                        self.restart_application()
+
+                        # Launch the updater script
+                        self.launch_updater_and_exit(updater_script)
                     else:
                         progress_dialog.destroy()
                         messagebox.showerror(
                             "Update Failed",
-                            "There was an error updating the application. "
+                            "There was an error downloading the update. "
                             "Please try again later."
                         )
 
@@ -331,10 +400,29 @@ class AutoUpdater:
 
         return False
 
-    def restart_application(self):
-        """Restart the application"""
-        python = sys.executable
-        os.execl(python, python, *sys.argv)
+    def launch_updater_and_exit(self, updater_script):
+        """Launch the updater script and exit the current application"""
+        try:
+            # Start the external updater process
+            if sys.platform.startswith('win'):
+                # Hide console window on Windows
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                subprocess.Popen([sys.executable, updater_script],
+                                 startupinfo=startupinfo,
+                                 creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                # Unix-like systems
+                subprocess.Popen([sys.executable, updater_script])
+
+            # Exit this application
+            os._exit(0)
+        except Exception as e:
+            print(f"Error launching updater: {str(e)}")
+            messagebox.showerror(
+                "Update Error",
+                f"Failed to launch updater: {str(e)}"
+            )
 
 
 if __name__ == "__main__":

@@ -14,8 +14,11 @@ import time
 
 class WindowCapture:
     # BYTES_SEARCH_PATTERN = b'\x20\x41\xCD\xCC\x4C\x3E.....\x7F\x00\x00.....\x7F'
-    BYTES_SEARCH_PATTERN = b'\xAB\xAA\xAA\x3E\xCD\xCC\x4C\x3E\xCD\xCC\xCC\x3D\x00\x00\xA0\x40\xFF\xFF\x00\x00............\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00.....\x7F\x00\x00.....\x7F\x00\x00\x00\x00\x00\x00............'
-    BYTES_SEARCH_PATTERN1 = b'\xAB\xAA\xAA\x3E\xCD\xCC\x4C\x3E\xCD\xCC\xCC\x3D\x00\x00\xA0\x40\xFF\xFF\x00\x00............\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00.....\x76\x00\x00.....\x76\x00\x00\x00\x00\x00\x00............'
+    BYTES_SEARCH_PATTERNS = [
+        b'\xAB\xAA\xAA\x3E\xCD\xCC\x4C\x3E\xCD\xCC\xCC\x3D\x00\x00\xA0\x40\xFF\xFF\x00\x00............\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00.....\x76\x00\x00.....\x76\x00\x00\x00\x00\x00\x00............',
+        b'\xAB\xAA\xAA\x3E\xCD\xCC\x4C\x3E\xCD\xCC\xCC\x3D\x00\x00\xA0\x40\xFF\xFF\x00\x00............\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00.....\x7F\x00\x00.....\x7F\x00\x00\x00\x00\x00\x00............',
+        b'\xAB\xAA\xAA\x3E\xCD\xCC\x4C\x3E\xCD\xCC\xCC\x3D\x00\x00\xA0\x40\xFF\xFF\x00\x00............\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00......\x00\x00......\x00\x00\x00\x00\x00\x00............'
+    ]
     # 012C = 300 - Balo open
     # OFFSET_BALO = 214
     OFFSET_BALO = 428
@@ -61,11 +64,13 @@ class WindowCapture:
     def readMemoryTilDeath(self):
         self.baloAddr = None
 
-        searchPattern = self.BYTES_SEARCH_PATTERN
+        nextIdx = 0
 
         while self.baloAddr is None:
+            searchPattern = self.BYTES_SEARCH_PATTERNS[nextIdx]
+
             self.log(
-                f'Reading LDPlayer\'s memory state, please wait. Process ID: {self.headlessPID}')
+                f'Reading LDPlayer\'s memory state, please wait. Process ID: {self.headlessPID}, {nextIdx}')
             # self.log(self.BYTES_SEARCH_PATTERN)
             self.baloAddresses = pymem.pattern.pattern_scan_all(
                 self.pm.process_handle, searchPattern, return_multiple=True)
@@ -85,10 +90,10 @@ class WindowCapture:
 
             if len(self.baloAddresses) == 0:
                 self.log('No memory addresses found, retrying...')
-                if searchPattern == self.BYTES_SEARCH_PATTERN:
-                    searchPattern = self.BYTES_SEARCH_PATTERN1
+                if nextIdx >= len(self.BYTES_SEARCH_PATTERNS) - 1:
+                    nextIdx = 0
                 else:
-                    searchPattern = self.BYTES_SEARCH_PATTERN
+                    nextIdx += 1
                 continue
 
             self.baloAddr = self.baloAddresses[0]

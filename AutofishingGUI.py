@@ -235,7 +235,7 @@ class AutofishingGUI:
 
     def update_button_state(self, window_name):
         """Update button states based on the current window and its process status"""
-        if window_name in self.fishing_processes and self.fishing_processes[window_name].is_alive():
+        if window_name in self.fishing_processes and not self.stop_events[window_name].is_set():
             self.start_button.config(state=tk.DISABLED)
             self.stop_button.config(state=tk.NORMAL)
         else:
@@ -314,7 +314,9 @@ class AutofishingGUI:
                 except Exception as e:
                     print(f"Error processing message queue: {e}")
 
-            if (window_name in self.fishing_processes and self.stop_events[window_name].is_set()):
+            if (window_name in self.fishing_processes and
+                not self.fishing_processes[window_name].is_alive() and
+                    not self.stop_events[window_name].is_set()):
                 # Process died unexpectedly
                 if log_widget:
                     log_widget.insert(
