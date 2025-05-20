@@ -164,8 +164,8 @@ class Autofishing:
             if self.vision.seeFullBagOrCantFish(frame2)[0]:
                 self.log('Bag is full or can no longer fish - pausing')
                 self.pause = True
-                break
-            self.wait('fast')
+                return
+            self.wait('slow')
 
         self.wait('nottooslow')
         if counters['numReel'] == 0:
@@ -178,7 +178,7 @@ class Autofishing:
             self.winCap.press(0x4F)
             self.wait('slow')
             self.winCap.press(0x4B)
-        time.sleep(10)
+        time.sleep(8)
 
     def ensureInitAddressCounters(self):
         if self.winCap.baloAddr in self.addressCounters:
@@ -317,6 +317,9 @@ class Autofishing:
 
         self.correct(skipRetract)
 
+        if self.pause:
+            return False
+
         if self.vision.seeBrokenRod(frame):
             self.onBrokenRod()
             self.repair()
@@ -327,22 +330,22 @@ class Autofishing:
         self.wait('fast')
         return True
 
-    def interruptHandler(self, stopEvent):
-        stopEvent.wait()
-        print('Stop event set')
-        _thread.interrupt_main()
-
-    def startLoop(self, stopEvent=None):
-        if stopEvent is not None:
-            task = threading.Thread(
-                target=self.interruptHandler, args=(stopEvent,))
-            task.start()
-
-        """Main fishing loop for backwards compatibility"""
+    def loopInThread(self, stopEvent):
         while True:
             if not self.startLoopIteration():
                 stopEvent.set()
                 break
+
+    def startLoop(self, stopEvent=None):
+        if stopEvent is not None:
+            task = threading.Thread(
+                target=self.loopInThread, args=(stopEvent,), daemon=True)
+            task.start()
+            stopEvent.wait()
+        else:
+            while True:
+                if not self.startLoopIteration():
+                    break
 
 
 def main():
