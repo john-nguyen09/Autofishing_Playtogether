@@ -196,8 +196,8 @@ class Vision:
         self.log(f"colour: {colour}, lastColourAsKey: {lastColourAsKey}, lastCrownColourAsKey: {lastCrownColourAsKey}, fishColourName: {fishColourName}, isCrown: {isCrown}")
         if fishColourName is None:
             matrix = lastFrame.matrix.copy()
-            matrix = cv2.circle(matrix, cs.CAUGHT_FISH_COLOUR_COORDS, 5, (0, 0, 255), 3)
-            matrix = cv2.circle(matrix, cs.CAUGHT_FISH_CROWN_COORDS, 5, (0, 0, 255), 3)
+            matrix = cv2.circle(matrix, self.winCap.pointAtResized(lastFrame, cs.CAUGHT_FISH_COLOUR_COORDS), 5, (0, 0, 255), 3)
+            matrix = cv2.circle(matrix, self.winCap.pointAtResized(lastFrame, cs.CAUGHT_FISH_CROWN_COORDS), 5, (0, 0, 255), 3)
             cv2.imwrite(f"data2/{int(datetime.now(timezone.utc).timestamp())}.png", matrix)
             with open(f"data2/{int(datetime.now(timezone.utc).timestamp())}.txt", "w") as f:
                 f.write(f"colour: {colour}\n")
