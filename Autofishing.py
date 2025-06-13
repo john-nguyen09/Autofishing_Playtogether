@@ -27,7 +27,7 @@ class Autofishing:
             self.winCap = winCap
         else:
             self.winCap = WindowCapture.findAndInit()
-        self.vision = Vision(winCap=self.winCap)
+        self.vision = Vision(winCap=self.winCap, message_queue=messageQueue)
         self.winCap.capture()  # To calculate rect
         self.pause = False
         self.messageQueue = messageQueue
@@ -39,6 +39,7 @@ class Autofishing:
             'nottooslow': lambda: self.rng.integers(low=473, high=597, size=1)[0],
             'fast': lambda: self.rng.integers(low=258, high=297, size=1)[0],
             'fishBiting': lambda: self.rng.integers(low=248, high=311, size=1)[0],
+            'fasterOk': lambda: self.rng.integers(low=356, high=384, size=1)[0],
             'ok': lambda: self.rng.integers(low=420, high=521, size=1)[0],
         }
 
@@ -107,12 +108,9 @@ class Autofishing:
             self.wait('nottooslow')
 
             frame2 = self.winCap.capture()
-            if self.vision.seeStoreButton(frame2):
-                self.onCaughtFish()
+            if (store := self.vision.seeStoreButton(frame2))[0]:
                 self.log('seeStoreButton')
-                self.wait('ok')
-
-                self.winCap.press(0x4C)  # press(L)
+                self.onCaughtFish(store)
                 self.wait('slow')
                 break
             elif self.vision.seeFishingButton(frame2):
@@ -196,7 +194,10 @@ class Autofishing:
         self.ensureInitAddressCounters()
         self.addressCounters[self.winCap.baloAddr]['numCasting'] += 1
 
-    def onCaughtFish(self):
+    def onCaughtFish(self, store):
+        self.wait('fasterOk')
+        self.handleSellOrStore(store)
+
         self.ensureInitAddressCounters()
         self.addressCounters[self.winCap.baloAddr]['numCaughtFish'] += 1
 
@@ -212,6 +213,30 @@ class Autofishing:
     def onGotCard(self):
         self.ensureInitAddressCounters()
         self.addressCounters[self.winCap.baloAddr]['numCards'] += 1
+
+    def handleSellOrStore(self, store):
+        frame, fishColourName, isCrown = self.vision.captureAndGetFishColour()
+
+        if fishColourName == 'white' or fishColourName == 'green':
+            sell = self.vision.seeSellNowButton(frame)
+
+            if sell[0]:
+                self.winCap.leftClick(
+                    utils.getRandomMiddle(self.rng, sell[1], sell[2]))
+                self.wait('nottooslow')
+                frame = self.winCap.capture()
+                if (yes := self.vision.seeYes(frame))[0]:
+                    self.winCap.leftClick(
+                        utils.getRandomMiddle(self.rng, yes[1], yes[2]))
+                    self.wait('ok')
+
+                self.winCap.press(0x56)  # press v
+            else:
+                self.winCap.leftClick(
+                    utils.getRandomMiddle(self.rng, store[1], store[2]))
+        else:
+            self.winCap.leftClick(
+                utils.getRandomMiddle(self.rng, store[1], store[2]))
 
     def startLoopIteration(self):
         """Run a single iteration of the fishing loop. Returns False if should stop."""
@@ -229,12 +254,6 @@ class Autofishing:
                 break
 
             count = count + 1
-            ints = self.rng.integers(low=180, high=289, size=1)
-
-            if previousState not in [15, 16, 17, 18, 20, 24, 25]:
-                if count >= ints[0]:
-                    self.wait('ok')
-                    break
 
             state = self.winCap.getFishingState()
 
@@ -305,11 +324,10 @@ class Autofishing:
             elif state == 25:
                 self.log('Giant fish not stunned')
 
-            if count % 7 == 0:
-                frame1 = self.winCap.capture()
-                if self.vision.seeFishingButton(frame1):
-                    skipRetract = True
-                    break
+            frame1 = self.winCap.capture()
+            if self.vision.seeFishingButton(frame1):
+                skipRetract = True
+                break
 
             if previousState != state:
                 previousState = state

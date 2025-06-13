@@ -10,6 +10,7 @@ from threading import Lock, Thread
 from queue import Queue
 from ProcessManager import ProcessManager
 import time
+import utils
 
 
 class WindowThread(Thread):
@@ -46,10 +47,19 @@ class WindowThread(Thread):
                 break
             elif self.vision.seeBrokenRod(frame):
                 self.repair()
-            elif self.vision.seeStoreButton(frame):
-                self.winCap.press(0x4C)  # press(L)
+            elif (store := self.vision.seeStoreButton(frame))[0]:
+                self.winCap.leftClick(
+                    utils.getRandomMiddle(self.rng, store[1], store[2]))
             elif self.vision.seeMine(frame)[0]:
                 self.winCap.press(0x4B)  # press k
+            elif (open := self.vision.seeCardsToOpen(frame))[0]:
+                print(f'[{self.window}] seeCardsToOpen')
+                self.winCap.leftClick(
+                    utils.getRandomMiddle(self.rng, open[1], open[2]))
+            elif (clickHere := self.vision.seeBunchOfClickHere(frame))[0]:
+                print(f'[{self.window}] seeBunchOfClickHere')
+                self.winCap.leftClick(utils.getRandomMiddle(
+                    self.rng, clickHere[1], clickHere[2]))
             else:
                 self.winCap.press(0x4B)  # press k
 
@@ -119,6 +129,7 @@ class Autokey:
 
     def startLoop(self):
         mainWindow = tk.Tk()
+        mainWindow.geometry("200x130")
         mainWindow.title("Autokey Control")
 
         def checkQueue():

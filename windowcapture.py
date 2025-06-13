@@ -10,6 +10,7 @@ from frame import Frame
 from ProcessManager import ProcessManager
 import math
 import time
+import constants as cs
 
 
 class WindowCapture:
@@ -25,6 +26,7 @@ class WindowCapture:
     OFFSET_FISING_STATE = 308
     OFFSET_ROD = 497
     ORIGINAL_WIDTH = 1247
+    TITLE_BAR_HEIGHT = 34
 
     # threading properties
     stopped = True
@@ -163,9 +165,50 @@ class WindowCapture:
         win32gui.ReleaseDC(self.hwnd, wDC)
         win32gui.DeleteObject(dataBitMap.GetHandle())
 
-        self.frame.setMatrix(img)
+        self.frame.setMatrix(img, width=bmpinfo['bmWidth'], height=bmpinfo['bmHeight'])
 
-        # cv2.imshow('Test', self.frame.matrix)
+        def click_event(event, x, y, flags, param):
+            # Check if left mouse button was clicked
+            if event == cv2.EVENT_LBUTTONDOWN:
+                # Get image from param
+                img = param
+
+                # Get the color at clicked coordinates
+                # Note: OpenCV uses BGR format by default, not RGB
+                # Get BGR values, ignoring alpha if present
+                b, g, r = img[y, x, 0:3]
+
+                # Get hex color code
+                hex_color = f"#{r:02x}{g:02x}{b:02x}"
+
+                originalX = x / self.ratio
+                originalY = (y + self.TITLE_BAR_HEIGHT) / self.ratio
+
+                # Print color information
+                print(f"W x H: {self.w} x {self.h}")
+                print(f"Coordinates: ({originalX},{originalY})")
+                print(f"BGR Color: ({b},{g},{r})")
+                print(f"Hex Color: {hex_color}")
+
+                # Optional: Display color info on the image
+                cv2.putText(img, f"({x},{y}): {hex_color}", (x, y-10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.putText(img, f"({x},{y}): {hex_color}", (x, y-10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (b, g, r), 1)
+
+                # Show the image with color information
+                cv2.imshow('Test', img)
+
+        # print(self.w)
+
+        # frame = self.frame.matrix.copy()
+        # frame = cv2.circle(frame, self.pointAtResized(
+        #     self.frame, cs.CAUGHT_FISH_COLOUR_COORDS), 4, (0, 0, 255), 1)
+        # print(self.colourAt(self.frame, cs.CAUGHT_FISH_COLOUR_COORDS))
+
+        # cv2.imshow('Test', frame)
+        # cv2.setMouseCallback('Test', click_event, frame)
+        # cv2.waitKey(0)
 
         return self.frame
 
@@ -181,6 +224,12 @@ class WindowCapture:
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
         avg = cv2.mean(gray)
         return avg[0]
+
+    def colourAt(self, frame, pt):
+        ptResized = self.pointAtResized(frame, pt)
+        b, g, r = frame.matrix[ptResized[1], ptResized[0], 0:3]
+
+        return r, g, b
 
     def toRelative(self, pt):
         return pt[0] - self.left, pt[1] - self.top
@@ -199,7 +248,7 @@ class WindowCapture:
 
     def leftClick(self, pos):
         posLong = win32api.MAKELONG(
-            math.ceil(pos[0] / self.scaleRate), math.ceil((pos[1] / self.scaleRate) - 20))
+            math.ceil(pos[0] / self.scaleRate), math.ceil((pos[1] / self.scaleRate) - self.TITLE_BAR_HEIGHT))
         win32gui.SendMessage(
             self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
         win32gui.PostMessage(self.hwndChild, win32con.WM_MOUSEMOVE, 0, posLong)
@@ -241,6 +290,25 @@ class WindowCapture:
         self.log(
             f"Failed reel detected, removing address {format(self.baloAddr, 'x')} from valid addresses")
         self.baloAddresses.remove(self.baloAddr)
+
+    def pointAtResized(self, frame, pt):
+        x = pt[0] - frame.origin[0]
+        y = pt[1] - frame.origin[1]
+        print(x, y, frame.origin, self.ratio, self.scaleRate)
+        x, y = math.ceil(x / self.scaleRate) * \
+            self.ratio, math.ceil((y / self.scaleRate) - 20) * self.ratio
+
+        if x < 0:
+            x = 0
+        elif x > self.w:
+            x = self.w
+
+        if y < 0:
+            y = 0
+        elif y > self.h:
+            y = self.h
+
+        return (int(x), int(y))
 
     @staticmethod
     def findAndInit(messageQueue=None):

@@ -1,4 +1,8 @@
 import utils
+import constants as cs
+import time
+import cv2
+from datetime import datetime, timezone
 
 
 class Vision:
@@ -7,6 +11,9 @@ class Vision:
         self.message_queue = message_queue
 
         self.claimSprite = utils.loadSprite('claim.png')
+        self.storeNowBigSprite = utils.loadSprite('store-now-big.png')
+        self.storeNowSmallSprite = utils.loadSprite('store-now-small.png')
+        self.sellNowSprite = utils.loadSprite('sell-now.png')
         self.fishingButtonSprite = utils.loadSprite('fish-button.png')
         self.brokenRodTitleVi = utils.loadSprite('repair-rod-title-vi.png')
         self.brokenRodTitleEn = utils.loadSprite('repair-rod-title-en.png')
@@ -49,13 +56,27 @@ class Vision:
 
         return fishingDetected[0] >= 0.7
 
+    def seeSellNowButton(self, frame):
+        sellNowDetected = utils.detectSprite(
+            frame.getNormed(), self.sellNowSprite, r=self.winCap.ratio)
+
+        return sellNowDetected[0] >= 0.7, sellNowDetected[1], sellNowDetected[2]
+
     def seeStoreButton(self, frame):
-        storeDetected = utils.detectSprite(
-            frame.getNormed(), self.claimSprite, r=self.winCap.ratio)
+        storeNowBigDetected = utils.detectSprite(
+            frame.getNormed(), self.storeNowBigSprite, r=self.winCap.ratio)
+        storeNowSmallDetected = utils.detectSprite(
+            frame.getNormed(), self.storeNowSmallSprite, r=self.winCap.ratio)
+
+        if storeNowBigDetected[0] >= 0.7:
+            return storeNowBigDetected
+
+        if storeNowSmallDetected[0] >= 0.7:
+            return storeNowSmallDetected
 
         # self.log(f'storeDetected: {storeDetected}')
 
-        return storeDetected[0] >= 0.7
+        return False, None, None
 
     def seeCardsToOpen(self, frame):
         openDetected = utils.detectSprite(
@@ -77,7 +98,7 @@ class Vision:
         okDetected = utils.detectSprite(
             frame.getNormed(), self.ok, r=self.winCap.ratio)
 
-        # self.log(f'okDetected: {okDetected}')
+        self.log(f'okDetected: {okDetected}')
 
         return okDetected[0] >= 0.9, okDetected[1], okDetected[2]
 
@@ -97,9 +118,9 @@ class Vision:
         yesDetected = utils.detectSprite(
             frame.getNormed(), self.yes, r=self.winCap.ratio)
 
-        # self.log(f'yesDetected: {yesDetected}')
+        self.log(f'yesDetected: {yesDetected}')
 
-        return yesDetected[0] >= 0.85, yesDetected[1], yesDetected[2]
+        return yesDetected[0] >= 0.7, yesDetected[1], yesDetected[2]
 
     def seeFullBagOrCantFish(self, frame):
         fullBagDetected = utils.detectSprite(
@@ -139,3 +160,46 @@ class Vision:
                 return True, start, end
 
         return False, None, None
+
+    def captureAndGetFishColour(self):
+        fishColourName = None
+        lastFrame = None
+        isCrown = False
+        lastColourAsKey = None
+        lastCrownColourAsKey = None
+
+        for i in range(3):
+            frame = self.winCap.capture()
+            colour = self.winCap.colourAt(
+                frame, cs.CAUGHT_FISH_COLOUR_COORDS)
+            colourAsKey = f"{colour[0]}, {colour[1]}, {colour[2]}"
+
+            if colourAsKey in cs.FISH_COLOURS:
+                fishColourName = cs.FISH_COLOURS[colourAsKey]
+
+            lastColourAsKey = colourAsKey
+            lastFrame = frame
+
+            if fishColourName is not None:
+                colour = self.winCap.colourAt(
+                    frame, cs.CAUGHT_FISH_CROWN_COORDS)
+                colourAsKey = f"{colour[0]}, {colour[1]}, {colour[2]}"
+
+                if colourAsKey in cs.CROWN_COLOURS:
+                    isCrown = True
+                lastCrownColourAsKey = colourAsKey
+                break
+
+            time.sleep(0.1)
+
+
+        self.log(f"colour: {colour}, lastColourAsKey: {lastColourAsKey}, lastCrownColourAsKey: {lastCrownColourAsKey}, fishColourName: {fishColourName}, isCrown: {isCrown}")
+        if fishColourName is None:
+            matrix = lastFrame.matrix.copy()
+            matrix = cv2.circle(matrix, cs.CAUGHT_FISH_COLOUR_COORDS, 5, (0, 0, 255), 3)
+            matrix = cv2.circle(matrix, cs.CAUGHT_FISH_CROWN_COORDS, 5, (0, 0, 255), 3)
+            cv2.imwrite(f"data2/{int(datetime.now(timezone.utc).timestamp())}.png", matrix)
+            with open(f"data2/{int(datetime.now(timezone.utc).timestamp())}.txt", "w") as f:
+                f.write(f"colour: {colour}\n")
+
+        return frame, fishColourName, isCrown

@@ -1,12 +1,13 @@
 import utils
 import cv2
+import math
 
 
 class Frame:
     matrix = None
     normed = None
 
-    def setMatrix(self, matrix, pos = (0, 0), width = None, height = None):
+    def setMatrix(self, matrix, pos=(0, 0), width=None, height=None):
         self.matrix = matrix
         self.normed = None
         self.pos = pos
@@ -14,8 +15,6 @@ class Frame:
         self.height = height
 
         self.origin = self.pos
-        if self.width and self.height:
-            self.origin = (int(self.pos[0] - self.width / 2), int(self.pos[1] - self.height / 2))
 
     def getNormed(self):
         if self.normed is None:
