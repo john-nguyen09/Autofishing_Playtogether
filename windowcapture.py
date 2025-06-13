@@ -296,7 +296,7 @@ class WindowCapture:
         y = pt[1] - frame.origin[1]
         print(x, y, frame.origin, self.ratio, self.scaleRate)
         x, y = math.ceil(x / self.scaleRate) * \
-            self.ratio, math.ceil((y / self.scaleRate) - 20) * self.ratio
+            self.ratio, math.ceil(y / self.scaleRate) * self.ratio
 
         if x < 0:
             x = 0
