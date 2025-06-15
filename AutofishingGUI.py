@@ -84,7 +84,7 @@ class AutofishingGUI:
 
         # Create message queues for communication between processes and GUI
         self.message_queues = {}
-        self.task_queue = multiprocessing.Queue()
+        self.task_queues = {}
         self.result_queue = multiprocessing.Queue()
         self.stop_events = {}
         self.log_widgets = {}
@@ -151,12 +151,19 @@ class AutofishingGUI:
             second_row, text="Bán cá ngay", variable=self.should_sell_fish_checkbox_var, command=self.on_should_sell_fish_checkbox_changed)
         self.should_sell_fish_checkbox.pack(side=tk.LEFT)
 
+        third_row = ttk.Frame(top_frame)
+        third_row.pack(fill=tk.X, pady=(5, 0))
+
+        self.locked_address_label = ttk.Label(
+            third_row, text="Địa chỉ:")
+        self.locked_address_label.pack(side=tk.LEFT)
+
         # Main frame for log display
-        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Tab control for logs from different windows
-        self.tab_control = ttk.Notebook(main_frame)
+        self.tab_control = ttk.Notebook(main_frame, padding=(10,0,10,0))
         self.tab_control.pack(fill=tk.BOTH, expand=True)
 
         self.tab_control.bind("<<NotebookTabChanged>>", self.on_tab_selected)
@@ -222,6 +229,8 @@ class AutofishingGUI:
             # Update button state for this window
             self.update_button_state(tab_text)
 
+            self.update_fishing_variables(tab_text)
+
     def on_window_selected(self, event):
         """Handle window selection from dropdown"""
         selected_window = self.window_combobox.get()
@@ -230,7 +239,7 @@ class AutofishingGUI:
         self.update_button_state(selected_window)
 
         # Update fishing variables for the selected window
-        self.update_fishing_variables()
+        self.update_fishing_variables(selected_window)
 
         # If tab exists for this window, switch to it
         for i in range(self.tab_control.index('end')):
@@ -255,14 +264,16 @@ class AutofishingGUI:
         self.tab_control.add(tab, text=window_name)
 
         # Add scrolled text widget for logs
-        log_widget = scrolledtext.ScrolledText(tab, wrap=tk.WORD, height=20)
-        log_widget.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        log_widget = scrolledtext.ScrolledText(
+            tab, wrap=tk.WORD, height=3, padx=5, pady=5)
+        log_widget.pack(fill=tk.BOTH, expand=True)
 
         # Store reference to log widget
         self.log_widgets[window_name] = log_widget
 
-        # Create message queue for this window
+        # Create message queue and task queue for this window
         self.message_queues[window_name] = multiprocessing.Queue()
+        self.task_queues[window_name] = multiprocessing.Queue()
         self.stop_events[window_name] = multiprocessing.Event()
 
         return log_widget
@@ -276,17 +287,14 @@ class AutofishingGUI:
             self.start_button.config(state=tk.NORMAL)
             self.stop_button.config(state=tk.DISABLED)
 
-    def update_fishing_variables(self):
-        """Update the fishing variables based on the selected window"""
-        window_name = self.window_combobox.get()
-        if not window_name:
-            return
-
+    def update_fishing_variables(self, window_name):
         if window_name not in self.fishing_variables:
             return
 
         self.should_sell_fish_checkbox_var.set(
             self.fishing_variables[window_name]["should_sell_fish"])
+        self.locked_address_label.config(
+            text=f"Địa chỉ: {self.fishing_variables[window_name]['locked_address']}")
 
     def on_should_sell_fish_checkbox_changed(self):
         window_name = self.window_combobox.get()
@@ -298,11 +306,12 @@ class AutofishingGUI:
 
         self.fishing_variables[window_name]["should_sell_fish"] = self.should_sell_fish_checkbox_var.get(
         )
-        self.task_queue.put({
-            "window_name": window_name,
-            "command": "UPDATE_FISHING_VARIABLES",
-            "data": self.fishing_variables[window_name]
-        })
+        if window_name in self.task_queues:  # Check if task queue exists for this window
+            self.task_queues[window_name].put({
+                "window_name": window_name,
+                "command": "UPDATE_FISHING_VARIABLES",
+                "data": self.fishing_variables[window_name]
+            })
 
     def start_fishing(self):
         """Start or resume fishing for the selected window"""
@@ -334,7 +343,7 @@ class AutofishingGUI:
                 window_name,
                 window_info['pid'],
                 self.message_queues[window_name],
-                self.task_queue,
+                self.task_queues[window_name],
                 self.result_queue,
                 self.stop_events[window_name],
                 fishingVariables=self.fishing_variables[window_name]
@@ -369,10 +378,11 @@ class AutofishingGUI:
             return
 
         self.fishing_variables[window_name]["locked_address"] = None
-        self.task_queue.put({
-            "window_name": window_name,
-            "command": "GET_BALO_ADDRESS"
-        })
+        if window_name in self.task_queues:  # Check if task queue exists for this window
+            self.task_queues[window_name].put({
+                "window_name": window_name,
+                "command": "GET_BALO_ADDRESS"
+            })
 
     def check_messages(self):
         """Check message queues and update log widgets."""
@@ -419,9 +429,9 @@ class AutofishingGUI:
             command = payload['command']
 
             if command == "BALO_ADDRESS":
-                self.message_queues[window_name].put(
-                    f"[{window_name}] Received BALO_ADDRESS {payload['data']}")
                 self.fishing_variables[window_name]["locked_address"] = payload['data']
+                self.locked_address_label.config(
+                    text=f"Địa chỉ: {payload['data']}")
 
     def on_closing(self):
         """Handle window closing event."""
