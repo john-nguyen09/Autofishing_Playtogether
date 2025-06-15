@@ -3,12 +3,14 @@ import constants as cs
 import time
 import cv2
 from datetime import datetime, timezone
+import numpy as np
 
 
 class Vision:
     def __init__(self, winCap, message_queue=None):
         self.winCap = winCap
         self.message_queue = message_queue
+        self.rng = np.random.default_rng(seed=6994420)
 
         self.claimSprite = utils.loadSprite('claim.png')
         self.storeNowBigSprite = utils.loadSprite('store-now-big.png')
@@ -192,14 +194,18 @@ class Vision:
 
             time.sleep(0.1)
 
-
+        shouldLog = self.rng.integers(low=0, high=100, size=1)[0] < 0.3
         self.log(f"colour: {colour}, lastColourAsKey: {lastColourAsKey}, lastCrownColourAsKey: {lastCrownColourAsKey}, fishColourName: {fishColourName}, isCrown: {isCrown}")
-        if fishColourName is None:
+        if shouldLog or fishColourName is None:
             matrix = lastFrame.matrix.copy()
             matrix = cv2.circle(matrix, self.winCap.pointAtResized(lastFrame, cs.CAUGHT_FISH_COLOUR_COORDS), 3, (0, 0, 255), 1)
             matrix = cv2.circle(matrix, self.winCap.pointAtResized(lastFrame, cs.CAUGHT_FISH_CROWN_COORDS), 3, (0, 0, 255), 1)
             cv2.imwrite(f"data2/{int(datetime.now(timezone.utc).timestamp())}.png", matrix)
             with open(f"data2/{int(datetime.now(timezone.utc).timestamp())}.txt", "w") as f:
                 f.write(f"colour: {colour}\n")
+                f.write(f"lastColourAsKey: {lastColourAsKey}\n")
+                f.write(f"lastCrownColourAsKey: {lastCrownColourAsKey}\n")
+                f.write(f"fishColourName: {fishColourName}\n")
+                f.write(f"isCrown: {isCrown}\n")
 
         return frame, fishColourName, isCrown

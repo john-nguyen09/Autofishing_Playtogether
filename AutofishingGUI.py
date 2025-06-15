@@ -4,11 +4,9 @@ import threading
 import multiprocessing
 from multiprocessing import Process, Queue, Event
 import queue
-import time
 import traceback
-import win32gui
+import json
 import sys
-import io
 import os
 from Autofishing import Autofishing
 from ProcessManager import ProcessManager
@@ -19,13 +17,17 @@ from updater import AutoUpdater
 class AutofishingProcess(Process):
     """Process for running Autofishing without freezing the GUI."""
 
-    def __init__(self, windowName, processId, messageQueue, controlQueue, stopEvent):
+    def __init__(
+            self, windowName, processId, messageQueue,
+            taskQueue, resultQueue, stopEvent, fishingVariables=None):
         super().__init__()
         self.windowName = windowName
         self.processId = processId
         self.messageQueue = messageQueue
-        self.controlQueue = controlQueue
+        self.taskQueue = taskQueue
+        self.resultQueue = resultQueue
         self.stopEvent = stopEvent
+        self.fishingVariables = fishingVariables or {}
         self.daemon = True
 
     def run(self):
@@ -35,17 +37,23 @@ class AutofishingProcess(Process):
                 f"Initializing Autofishing for {self.windowName}...\n")
 
             winCap = WindowCapture(
-                self.windowName, self.processId, messageQueue=self.messageQueue)
+                self.windowName,
+                self.processId,
+                messageQueue=self.messageQueue,
+                fishingVariables=self.fishingVariables
+            )
 
-            # Pass the message queue to the Autofishing instance
-            bot = Autofishing(winCap, self.messageQueue)
-
-            # Start the fishing loop with output redirected to GUI
-            self.messageQueue.put(
-                f"Starting autofishing on {self.windowName}...\n")
+            # Pass the message queue and fishing variables to the Autofishing instance
+            bot = Autofishing(winCap, self.messageQueue,
+                              self.taskQueue, self.resultQueue, self.fishingVariables)
 
             if not self.stopEvent.is_set():
+                self.messageQueue.put(
+                    f"Starting autofishing on {self.windowName}...\n")
                 bot.startLoop(self.stopEvent)
+            else:
+                self.messageQueue.put(
+                    f"Fishing process terminated for {self.windowName}\n")
         except Exception as e:
             self.messageQueue.put(f"Error in fishing process: {str(e)}\n")
             self.messageQueue.put(traceback.format_exc())
@@ -76,18 +84,24 @@ class AutofishingGUI:
 
         # Create message queues for communication between processes and GUI
         self.message_queues = {}
-        self.control_queues = {}
+        self.task_queue = multiprocessing.Queue()
+        self.result_queue = multiprocessing.Queue()
         self.stop_events = {}
         self.log_widgets = {}
 
         # Store running processes
         self.fishing_processes = {}
 
+        # Store fishing variables per window
+        self.fishing_variables = {}
+
         # Create GUI components
         self.create_widgets()
 
         # Start the message checking loop
         self.check_messages()
+
+        threading.Thread(target=self.check_controls, daemon=True).start()
 
         self.root.after(1000, self.check_for_updates)
 
@@ -96,28 +110,46 @@ class AutofishingGUI:
         top_frame = ttk.Frame(self.root, padding="10")
         top_frame.pack(fill=tk.X)
 
+        # First row frame for buttons
+        first_row = ttk.Frame(top_frame)
+        first_row.pack(fill=tk.X)
+
         # Dropdown for window selection
         self.window_combobox = ttk.Combobox(
-            top_frame, width=20, state="readonly")
+            first_row, width=20, state="readonly")
         self.window_combobox.pack(side=tk.LEFT, padx=(0, 10))
         self.window_combobox.bind(
             "<<ComboboxSelected>>", self.on_window_selected)
 
         # Refresh button
         self.refresh_button = ttk.Button(
-            top_frame, text="Refresh", command=self.refresh_windows)
+            first_row, text="Refresh", command=self.refresh_windows)
         self.refresh_button.pack(side=tk.LEFT, padx=(0, 10))
 
         # Start button
         self.start_button = ttk.Button(
-            top_frame, text="Start", command=self.start_fishing)
+            first_row, text="Start", command=self.start_fishing)
         self.start_button.pack(side=tk.LEFT, padx=(0, 5))
 
         # Stop button (added for better process control)
         self.stop_button = ttk.Button(
-            top_frame, text="Stop", command=self.stop_fishing)
+            first_row, text="Stop", command=self.stop_fishing)
         self.stop_button.pack(side=tk.LEFT, padx=(5, 0))
         self.stop_button.config(state=tk.DISABLED)  # Initially disabled
+
+        # Second row frame for lock address checkbox
+        second_row = ttk.Frame(top_frame)
+        second_row.pack(fill=tk.X, pady=(5, 0))
+
+        self.lock_address_button = ttk.Button(
+            second_row, text="Khóa địa chỉ", command=self.lock_address)
+        self.lock_address_button.pack(side=tk.LEFT)
+
+        self.should_sell_fish_checkbox_var = tk.BooleanVar()
+        self.should_sell_fish_checkbox_var.set(True)
+        self.should_sell_fish_checkbox = ttk.Checkbutton(
+            second_row, text="Bán cá ngay", variable=self.should_sell_fish_checkbox_var, command=self.on_should_sell_fish_checkbox_changed)
+        self.should_sell_fish_checkbox.pack(side=tk.LEFT)
 
         # Main frame for log display
         main_frame = ttk.Frame(self.root, padding="10")
@@ -197,6 +229,9 @@ class AutofishingGUI:
         # Update button state for the selected window
         self.update_button_state(selected_window)
 
+        # Update fishing variables for the selected window
+        self.update_fishing_variables()
+
         # If tab exists for this window, switch to it
         for i in range(self.tab_control.index('end')):
             if self.tab_control.tab(i, "text") == selected_window:
@@ -228,7 +263,6 @@ class AutofishingGUI:
 
         # Create message queue for this window
         self.message_queues[window_name] = multiprocessing.Queue()
-        self.control_queues[window_name] = multiprocessing.Queue()
         self.stop_events[window_name] = multiprocessing.Event()
 
         return log_widget
@@ -242,6 +276,34 @@ class AutofishingGUI:
             self.start_button.config(state=tk.NORMAL)
             self.stop_button.config(state=tk.DISABLED)
 
+    def update_fishing_variables(self):
+        """Update the fishing variables based on the selected window"""
+        window_name = self.window_combobox.get()
+        if not window_name:
+            return
+
+        if window_name not in self.fishing_variables:
+            return
+
+        self.should_sell_fish_checkbox_var.set(
+            self.fishing_variables[window_name]["should_sell_fish"])
+
+    def on_should_sell_fish_checkbox_changed(self):
+        window_name = self.window_combobox.get()
+        if not window_name:
+            return
+
+        if window_name not in self.fishing_variables:
+            return
+
+        self.fishing_variables[window_name]["should_sell_fish"] = self.should_sell_fish_checkbox_var.get(
+        )
+        self.task_queue.put({
+            "window_name": window_name,
+            "command": "UPDATE_FISHING_VARIABLES",
+            "data": self.fishing_variables[window_name]
+        })
+
     def start_fishing(self):
         """Start or resume fishing for the selected window"""
         window_info = self.get_selected_window_info()
@@ -249,6 +311,15 @@ class AutofishingGUI:
             return
 
         window_name = window_info['name']
+
+        # Update fishing variables for this window
+        if window_name not in self.fishing_variables:
+            self.fishing_variables[window_name] = {
+                "locked_address": None,
+                "should_sell_fish": True
+            }
+        self.fishing_variables[window_name]["should_sell_fish"] = self.should_sell_fish_checkbox_var.get(
+        )
 
         if window_name not in self.fishing_processes or not self.fishing_processes[window_name].is_alive():
             # Create new fishing process
@@ -263,8 +334,10 @@ class AutofishingGUI:
                 window_name,
                 window_info['pid'],
                 self.message_queues[window_name],
-                self.control_queues[window_name],
-                self.stop_events[window_name]
+                self.task_queue,
+                self.result_queue,
+                self.stop_events[window_name],
+                fishingVariables=self.fishing_variables[window_name]
             )
             process.start()
 
@@ -281,7 +354,6 @@ class AutofishingGUI:
 
         if window_name in self.fishing_processes and self.fishing_processes[window_name].is_alive():
             # Signal the process to stop
-            self.control_queues[window_name].put("STOP")
             self.stop_events[window_name].set()
 
             # Don't wait for it to finish here to avoid blocking GUI
@@ -289,6 +361,18 @@ class AutofishingGUI:
             self.message_queues[window_name].put(
                 f"Stopping fishing for {window_name}...\n")
             self.update_button_state(window_name)
+
+    def lock_address(self):
+        """Lock the address for the selected window"""
+        window_name = self.window_combobox.get()
+        if not window_name:
+            return
+
+        self.fishing_variables[window_name]["locked_address"] = None
+        self.task_queue.put({
+            "window_name": window_name,
+            "command": "GET_BALO_ADDRESS"
+        })
 
     def check_messages(self):
         """Check message queues and update log widgets."""
@@ -305,7 +389,7 @@ class AutofishingGUI:
 
                             if 'Fishing process terminated' in message:
                                 self.root.after(
-                                    1000, lambda: self.update_button_state(window_name))
+                                    3000, lambda: self.update_button_state(window_name))
 
                             log_widget.insert(tk.END, message)
                             log_widget.see(tk.END)  # Auto-scroll to the end
@@ -328,12 +412,22 @@ class AutofishingGUI:
         # Schedule next check
         self.root.after(100, self.check_messages)
 
+    def check_controls(self):
+        while True:
+            payload = self.result_queue.get()
+            window_name = payload['window_name']
+            command = payload['command']
+
+            if command == "BALO_ADDRESS":
+                self.message_queues[window_name].put(
+                    f"[{window_name}] Received BALO_ADDRESS {payload['data']}")
+                self.fishing_variables[window_name]["locked_address"] = payload['data']
+
     def on_closing(self):
         """Handle window closing event."""
         # Stop all fishing processes
         for window_name, process in list(self.fishing_processes.items()):
             if process.is_alive():
-                self.control_queues[window_name].put("STOP")
                 self.stop_events[window_name].set()
 
                 # Give processes a moment to terminate cleanly

@@ -7,8 +7,8 @@ import utils
 from windowcapture import WindowCapture
 from vision import Vision
 import traceback
-import _thread
 import threading
+import json
 
 
 class Autofishing:
@@ -21,7 +21,7 @@ class Autofishing:
 
     addressCounters = {}
 
-    def __init__(self, winCap=None, messageQueue=None):
+    def __init__(self, winCap=None, messageQueue=None, taskQueue=None, resultQueue=None, fishingVariables=None):
         self.rng = np.random.default_rng(seed=6994420)
         if winCap is not None:
             self.winCap = winCap
@@ -31,6 +31,9 @@ class Autofishing:
         self.winCap.capture()  # To calculate rect
         self.pause = False
         self.messageQueue = messageQueue
+        self.taskQueue = taskQueue
+        self.resultQueue = resultQueue
+        self.fishingVariables = fishingVariables or {}
 
         self.waitFuncs = {
             '5s': lambda: self.rng.integers(low=4666, high=5222, size=1)[0],
@@ -217,7 +220,8 @@ class Autofishing:
     def handleSellOrStore(self, store):
         frame, fishColourName, isCrown = self.vision.captureAndGetFishColour()
 
-        if fishColourName == 'white' or fishColourName == 'green':
+        shouldSellFish = self.fishingVariables.get('should_sell_fish', False)
+        if shouldSellFish and (fishColourName == 'white' or fishColourName == 'green'):
             sell = self.vision.seeSellNowButton(frame)
 
             if sell[0]:
@@ -228,7 +232,7 @@ class Autofishing:
                 if (yes := self.vision.seeYes(frame))[0]:
                     self.winCap.leftClick(
                         utils.getRandomMiddle(self.rng, yes[1], yes[2]))
-                    self.wait('ok')
+                    self.wait('nottooslow')
 
                 self.winCap.press(0x56)  # press v
             else:
@@ -359,11 +363,40 @@ class Autofishing:
             task = threading.Thread(
                 target=self.loopInThread, args=(stopEvent,), daemon=True)
             task.start()
+            controlListener = threading.Thread(
+                target=self.checkControls, daemon=True)
+            controlListener.start()
             stopEvent.wait()
+
+            self.taskQueue.put({
+                "window_name": self.winCap.windowName,
+                "command": "STOP_LISTENING"
+            })
         else:
             while True:
                 if not self.startLoopIteration():
                     break
+
+    def checkControls(self):
+        while True:
+            payload = self.taskQueue.get()
+            window_name = payload['window_name']
+            command = payload['command']
+
+            if window_name != self.winCap.windowName:
+                continue
+
+            if command == "GET_BALO_ADDRESS":
+                self.resultQueue.put({
+                    "window_name": self.winCap.windowName,
+                    "command": "BALO_ADDRESS",
+                    "data": self.winCap.baloAddr
+                })
+            elif command == "STOP_LISTENING":
+                break
+            elif command == "UPDATE_FISHING_VARIABLES":
+                self.fishingVariables = payload['data']
+                self.log(f"Updated fishing variables: {self.fishingVariables}")
 
 
 def main():

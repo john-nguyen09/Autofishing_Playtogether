@@ -42,18 +42,27 @@ class WindowCapture:
     frame = Frame()
 
     # constructor
-    def __init__(self, windowName, headlessPID, noMem=False, messageQueue=None):
+    def __init__(self, windowName, headlessPID, noMem=False, messageQueue=None, fishingVariables=None):
         self.messageQueue = messageQueue
+        self.windowName = windowName
         self.hwnd = win32gui.FindWindow(None, windowName)
         if not self.hwnd:
             raise Exception('Window not found: {}'.format(windowName))
         self.hwndChild = win32gui.GetWindow(self.hwnd, win32con.GW_CHILD)
         self.scaleRate = self.getWindowDpiScale(self.hwndChild)
         self.headlessPID = headlessPID
+        self.fishingVariables = fishingVariables or {}
+        self.lockedBaloAddr = False
 
         if not noMem:
             self.pm = pymem.Pymem()
             self.pm.open_process_from_id(self.headlessPID)
+
+            if self.fishingVariables['locked_address'] is not None:
+                self.baloAddr = self.fishingVariables['locked_address']
+                self.log(f"Using locked address: {format(self.baloAddr, 'x')}")
+                self.lockedBaloAddr = True
+                return
 
             self.readMemoryTilDeath()
 
@@ -165,7 +174,8 @@ class WindowCapture:
         win32gui.ReleaseDC(self.hwnd, wDC)
         win32gui.DeleteObject(dataBitMap.GetHandle())
 
-        self.frame.setMatrix(img, width=bmpinfo['bmWidth'], height=bmpinfo['bmHeight'])
+        self.frame.setMatrix(
+            img, width=bmpinfo['bmWidth'], height=bmpinfo['bmHeight'])
 
         def click_event(event, x, y, flags, param):
             # Check if left mouse button was clicked
@@ -260,6 +270,9 @@ class WindowCapture:
             self.hwndChild, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON, posLong)
 
     def adjustBaloAddr(self, expectedStates):
+        if self.lockedBaloAddr:
+            return
+
         found = False
 
         for addr in self.baloAddresses:
