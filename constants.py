@@ -1,4 +1,4 @@
-CAUGHT_FISH_COLOUR_COORDS = (909, 300)
+CAUGHT_FISH_COLOUR_COORDS = (911, 300)
 CAUGHT_FISH_CROWN_COORDS = (954, 225)
 
 FISH_COLOURS = {
@@ -12,8 +12,10 @@ FISH_COLOURS = {
     '232, 147, 232': 'purple',
     '232, 147, 231': 'purple',
     '231, 147, 232': 'purple',
+    'mutant': 'mutant',
 }
 
 CROWN_COLOURS = {
-    '97, 83, 22': True
+    '97, 83, 22': True,
+    '248, 214, 56': True
 }

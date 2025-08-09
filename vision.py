@@ -7,15 +7,17 @@ import numpy as np
 
 
 class Vision:
-    def __init__(self, winCap, message_queue=None):
+    def __init__(self, winCap, message_queue=None, id=None):
         self.winCap = winCap
         self.message_queue = message_queue
         self.rng = np.random.default_rng(seed=6994420)
+        self.id = id
 
         self.claimSprite = utils.loadSprite('claim.png')
         self.storeNowBigSprite = utils.loadSprite('store-now-big.png')
         self.storeNowSmallSprite = utils.loadSprite('store-now-small.png')
         self.sellNowSprite = utils.loadSprite('sell-now.png')
+        self.sellNow2Sprite = utils.loadSprite('sell-now-2.png')
         self.fishingButtonSprite = utils.loadSprite('fish-button.png')
         self.brokenRodTitleVi = utils.loadSprite('repair-rod-title-vi.png')
         self.brokenRodTitleEn = utils.loadSprite('repair-rod-title-en.png')
@@ -25,8 +27,10 @@ class Vision:
         self.openAllVi = utils.loadSprite('open-all-vi.png')
         self.ok = utils.loadSprite('ok.png')
         self.yes = utils.loadSprite('yes.png')
+        self.confirm = utils.loadSprite('xac-nhan.png')
         self.fullBag = utils.loadSprite('full-bag.png')
         self.cantFishForTheDay = utils.loadSprite('cant-fish-for-the-day.png')
+        self.mutantSymbol = utils.loadSprite('mutant-symbol.png')
 
         self.clickHere1 = utils.loadSprite('click-here-1.png')
         self.clickHere2 = utils.loadSprite('click-here-2.png')
@@ -59,6 +63,12 @@ class Vision:
         return fishingDetected[0] >= 0.7
 
     def seeSellNowButton(self, frame):
+        sellNow2Detected = utils.detectSprite(
+            frame.getNormed(), self.sellNow2Sprite, r=self.winCap.ratio)
+
+        if sellNow2Detected[0] >= 0.7:
+            return True, sellNow2Detected[1], sellNow2Detected[2]
+
         sellNowDetected = utils.detectSprite(
             frame.getNormed(), self.sellNowSprite, r=self.winCap.ratio)
 
@@ -70,13 +80,14 @@ class Vision:
         storeNowSmallDetected = utils.detectSprite(
             frame.getNormed(), self.storeNowSmallSprite, r=self.winCap.ratio)
 
+        self.log(f'{self.id} storeNowBigDetected: {storeNowBigDetected}')
         if storeNowBigDetected[0] >= 0.7:
             return storeNowBigDetected
 
+        self.log(f'{self.id} storeDetected: {storeNowSmallDetected}')
+
         if storeNowSmallDetected[0] >= 0.7:
             return storeNowSmallDetected
-
-        # self.log(f'storeDetected: {storeDetected}')
 
         return False, None, None
 
@@ -117,12 +128,18 @@ class Vision:
         return False, None, None
 
     def seeYes(self, frame):
+        confirmDetected = utils.detectSprite(
+            frame.getNormed(), self.confirm, r=self.winCap.ratio)
+
+        if confirmDetected[0] >= 0.7:
+            return confirmDetected
+
         yesDetected = utils.detectSprite(
             frame.getNormed(), self.yes, r=self.winCap.ratio)
 
         self.log(f'yesDetected: {yesDetected}')
 
-        return yesDetected[0] >= 0.7, yesDetected[1], yesDetected[2]
+        return yesDetected[0] >= 0.85, yesDetected[1], yesDetected[2]
 
     def seeFullBagOrCantFish(self, frame):
         fullBagDetected = utils.detectSprite(
@@ -149,13 +166,13 @@ class Vision:
         cantHitDtected = [utils.detectSprite(frame.getNormed(), sprite, r=self.winCap.ratio) for sprite in [
             self.hitMissing, self.hitTheVoid, self.gottaAimAndHit]]
 
-        detected_values = list(
-            map(lambda detected: detected[0], cantHitDtected))
-        if self.message_queue:
-            self.message_queue.put(
-                f"Cant Hit Detection values: {detected_values}\n")
-        else:
-            print(f"Cant Hit Detection values: {detected_values}")
+        # detected_values = list(
+        #     map(lambda detected: detected[0], cantHitDtected))
+        # if self.message_queue:
+        #     self.message_queue.put(
+        #         f"Cant Hit Detection values: {detected_values}\n")
+        # else:
+        #     print(f"Cant Hit Detection values: {detected_values}")
 
         for (match, start, end) in cantHitDtected:
             if match >= 0.7:
@@ -168,7 +185,7 @@ class Vision:
         lastFrame = None
         isCrown = False
         lastColourAsKey = None
-        lastCrownColourAsKey = None
+        lastCrownedColourAsKey = None
 
         for i in range(3):
             frame = self.winCap.capture()
@@ -176,36 +193,47 @@ class Vision:
                 frame, cs.CAUGHT_FISH_COLOUR_COORDS)
             colourAsKey = f"{colour[0]}, {colour[1]}, {colour[2]}"
 
+            crownedColour = self.winCap.colourAt(
+                frame, cs.CAUGHT_FISH_CROWN_COORDS)
+            crownedColourAsKey = f"{crownedColour[0]}, {crownedColour[1]}, {crownedColour[2]}"
+
+            mutantSymbolDetected = utils.detectSprite(
+                frame.getNormed(), self.mutantSymbol, r=self.winCap.ratio)
+
+            self.log(f'mutantSymbolDetected: {mutantSymbolDetected}')
             if colourAsKey in cs.FISH_COLOURS:
                 fishColourName = cs.FISH_COLOURS[colourAsKey]
 
+            if crownedColourAsKey in cs.CROWN_COLOURS:
+                isCrown = True
+
+            if mutantSymbolDetected[0] >= 0.7:
+                fishColourName = cs.FISH_COLOURS['mutant']
+
+            lastCrownedColourAsKey = crownedColourAsKey
             lastColourAsKey = colourAsKey
             lastFrame = frame
 
             if fishColourName is not None:
-                colour = self.winCap.colourAt(
-                    frame, cs.CAUGHT_FISH_CROWN_COORDS)
-                colourAsKey = f"{colour[0]}, {colour[1]}, {colour[2]}"
-
-                if colourAsKey in cs.CROWN_COLOURS:
-                    isCrown = True
-                lastCrownColourAsKey = colourAsKey
                 break
 
             time.sleep(0.1)
 
-        shouldLog = self.rng.integers(low=0, high=100, size=1)[0] < 0.3
-        self.log(f"colour: {colour}, lastColourAsKey: {lastColourAsKey}, lastCrownColourAsKey: {lastCrownColourAsKey}, fishColourName: {fishColourName}, isCrown: {isCrown}")
-        if shouldLog or fishColourName is None:
-            matrix = lastFrame.matrix.copy()
-            matrix = cv2.circle(matrix, self.winCap.pointAtResized(lastFrame, cs.CAUGHT_FISH_COLOUR_COORDS), 3, (0, 0, 255), 1)
-            matrix = cv2.circle(matrix, self.winCap.pointAtResized(lastFrame, cs.CAUGHT_FISH_CROWN_COORDS), 3, (0, 0, 255), 1)
-            cv2.imwrite(f"data2/{int(datetime.now(timezone.utc).timestamp())}.png", matrix)
-            with open(f"data2/{int(datetime.now(timezone.utc).timestamp())}.txt", "w") as f:
-                f.write(f"colour: {colour}\n")
-                f.write(f"lastColourAsKey: {lastColourAsKey}\n")
-                f.write(f"lastCrownColourAsKey: {lastCrownColourAsKey}\n")
-                f.write(f"fishColourName: {fishColourName}\n")
-                f.write(f"isCrown: {isCrown}\n")
+        # shouldLog = self.rng.integers(low=0, high=100, size=1)[0] < 0.1
+        self.log(f"colour: {colour}, lastColourAsKey: {lastColourAsKey}, lastCrownedColourAsKey: {lastCrownedColourAsKey}, fishColourName: {fishColourName}, isCrown: {isCrown}")
+        # if shouldLog or fishColourName is None:
+        #     matrix = lastFrame.matrix.copy()
+        #     matrix = cv2.circle(matrix, self.winCap.pointAtResized(
+        #         lastFrame, cs.CAUGHT_FISH_COLOUR_COORDS), 3, (0, 0, 255), 1)
+        #     matrix = cv2.circle(matrix, self.winCap.pointAtResized(
+        #         lastFrame, cs.CAUGHT_FISH_CROWN_COORDS), 3, (0, 0, 255), 1)
+        #     cv2.imwrite(
+        #         f"data2/{int(datetime.now(timezone.utc).timestamp())}.png", matrix)
+        #     with open(f"data2/{int(datetime.now(timezone.utc).timestamp())}.txt", "w") as f:
+        #         f.write(f"colour: {colour}\n")
+        #         f.write(f"lastColourAsKey: {lastColourAsKey}\n")
+        #         f.write(f"lastCrownColourAsKey: {lastCrownedColourAsKey}\n")
+        #         f.write(f"fishColourName: {fishColourName}\n")
+        #         f.write(f"isCrown: {isCrown}\n")
 
-        return frame, fishColourName, isCrown
+        return lastFrame, fishColourName, isCrown

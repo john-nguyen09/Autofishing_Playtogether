@@ -95,7 +95,7 @@ class Autokey:
                 window['name'], processManager.headlessProcesses[idx]['pid'], noMem=True)
             self.allWindows[window['name']] = {
                 'winCap': winCap,
-                'vision': Vision(winCap=winCap),
+                'vision': Vision(winCap=winCap, id=window['name']),
                 'thread': None,
                 'commandQueue': self.commandQueue,
             }

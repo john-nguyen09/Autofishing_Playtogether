@@ -241,6 +241,7 @@ class Autofishing:
         else:
             self.winCap.leftClick(
                 utils.getRandomMiddle(self.rng, store[1], store[2]))
+        self.log('Here?')
 
     def startLoopIteration(self):
         """Run a single iteration of the fishing loop. Returns False if should stop."""

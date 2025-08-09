@@ -259,7 +259,7 @@ class WindowCapture:
     def leftClick(self, pos):
         posLong = win32api.MAKELONG(
             math.ceil(pos[0] / self.scaleRate), math.ceil((pos[1] / self.scaleRate) - self.TITLE_BAR_HEIGHT))
-        win32gui.SendMessage(
+        win32gui.PostMessage(
             self.hwndChild, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
         win32gui.PostMessage(self.hwndChild, win32con.WM_MOUSEMOVE, 0, posLong)
         time.sleep(0.030)
